@@ -18,7 +18,7 @@
 ## Contents
 
 - **1** · [How this pack is used](#1-how-this-pack-is-used) — [standards conformance](#11-standards-conformance)
-- **2** · [Artefact meta-schemas](#2-artefact-meta-schemas) — [intent registry](#20-global-intent-registry) · [object metadata](#21-object-metadata) · [pack](#22-quality-pack) · [intent pack](#23-intent-pack) · [binding CRD](#24-qualitybinding-crd) · [file manifest](#25-file-delivery-manifest) · [violation](#26-violation-object)
+- **2** · [Artefact meta-schemas](#2-artefact-meta-schemas) — [intent registry](#20-global-intent-registry) · [object metadata](#21-object-metadata) · [pack](#22-quality-pack) · [intent pack](#23-intent-pack) · [binding CRD](#24-qualitybinding-crd) · [file manifest](#25-file-delivery-manifest) · [violation](#26-violation-object) · [filter contract](#27-http-filter-contract)
 - **3** · [`dqctl` command contract](#3-dqctl-command-contract)
 - **4** · [Environments and promotion](#4-environments-and-promotion)
 - **5** · [Configuration precedence](#5-configuration-precedence)
@@ -502,7 +502,74 @@ The contract between an upstream extract and the gate job. Referenced eight time
 | `DQ_UNSUPPORTED_MEDIA_TYPE` | 415 | Body is not `application/json` | Coverage SLI |
 | `DQ_INTENT_UNKNOWN` | 400 | Address key not resolvable in this binding | Coverage SLI |
 | `DQ_RULE_ERROR` | 500 | CEL evaluation or schema-matcher fault | Availability SLI |
+| `DQ_ENGINE_UNAVAILABLE` | 503 | The filter could not reach the engine, or the decision exceeded its deadline (§2.7) | Availability SLI |
 | `DQ_UNSUPPORTED_FORMAT` | n/a | File format not supported by this gate-job version | Availability SLI |
+
+### 2.7 HTTP filter contract
+
+The zero-touch path has two implementations — **C7b** (`ext_proc`, an external gRPC service) and **C7a** (a proxy-wasm filter). C7b is built first because it reuses the engine unchanged; C7a must satisfy **the same behavioural contract**. This section is therefore written in behaviour rather than transport, and an implementation that cannot meet a row here is neither a conforming C7a nor a conforming C7b.
+
+Nothing in this section existed before an E2E harness was attempted. `KD-1` chooses between four options; it does not specify the chosen one, and a filter written from a comparison table is a filter whose failure modes are discovered in production.
+
+**Block 1 of 3 — phases and processing modes.**
+
+| Phase | Mode | Why |
+|---|---|---|
+| `request_headers` | `SEND` | The routing key and the correlation id arrive here, before any body is buffered |
+| `request_body` | `BUFFERED` | Tier 0 and every semantic rule need the whole record; a streamed body cannot answer "is this a valid party" |
+| `response_headers` | `SKIP` | The filter never mutates a response — Block 2 |
+| `response_body` | `NONE` | As above |
+| `trailers` | `SKIP` | Nothing is decided from trailers |
+
+A request is decided **once**, on the `request_body` message with `end_of_stream: true`. A record split across several body messages is reassembled before `Decide`; an implementation that decides per chunk is non-conforming, because half a party is not a party.
+
+The sequence, and what each branch produces:
+
+| Step | Condition | ENFORCE | SHADOW / WARN |
+|---|---|---|---|
+| 1 | `:path` has no adopted plan | pass through, untouched | pass through |
+| 2 | correlation id | `x-correlation-id`, else a ULID generated once per request | same |
+| 3 | `content-type` is not `application/json` | `415` `DQ_UNSUPPORTED_MEDIA_TYPE` | pass through, counted as skipped |
+| 4 | body exceeds `maxRequestBytes` | `413` `DQ_PAYLOAD_TOO_LARGE` | pass through **byte for byte**, counted as skipped |
+| 5 | verdict is clean | continue; set `DQ-Pack-Digest` | continue; set `DQ-Pack-Digest` |
+| 6 | verdict has violations | `422 application/problem+json` (§2.6) | **SHADOW:** continue, no header. **WARN:** continue with `DQ-Pack-Digest`, `x-dq-warn: 1`, `x-dq-violations: <n>` |
+
+Step 4 is the one that costs most to get wrong. A body limit that **truncates** produces a record that is neither validated nor rejected, and an upstream that receives corrupt JSON and is blamed for it. Pass-through in SHADOW and WARN must preserve the bytes the client sent, not the prefix the filter happened to read.
+
+**Block 2 of 3 — five things the filter must not do.**
+
+| Prohibition | Why |
+|---|---|
+| Mutate a response | A quality gate that rewrites responses is a transformation layer with a different review bar |
+| Retry the decision | A retry turns one record into two verdicts, and the second may pass because the first consumed a provider call |
+| Cache a decision | Two identical records are not the same record: the `history` and `delta` providers make the answer time-dependent |
+| Load rules on the request path | S4 — the runtime evaluates a resolved plan from a pinned digest, or it refuses to start |
+| Log or echo a field value | §2.6 `message`. A filter that logs bodies reintroduces by hand the leak the engine prevents |
+
+**Block 3 of 3 — when the filter itself cannot answer.**
+
+This is the part a comparison table cannot supply. The distinction is the one §2.6 already makes between a violation and a failure code: **`422` means the data is wrong, `5xx` means we could not tell.** Conflating them teaches clients either to retry bad data or to quarantine good data.
+
+| Situation | ENFORCE | SHADOW / WARN | Mechanism |
+|---|---|---|---|
+| ext_proc unreachable, or the deadline expires | `503` `DQ_ENGINE_UNAVAILABLE`, `application/problem+json` | pass through untouched | `failure_mode_allow: false` in ENFORCE, `true` in SHADOW/WARN, plus a `local_reply_config` body mapping |
+| `Decide` returns an error (a rule that does not compile) | `500` `DQ_RULE_ERROR` | pass through, counted as skipped | the filter maps the error; it does not invent a violation |
+| Rule compiled but could not be evaluated for this record | not a failure — the record fails closed with a `CRITICAL` violation naming the rule | same | `engine.Decide` already does this; §2.6 `retryable` |
+| Bundle fails digest or signature verification at start-up | process exits; the workload falls back to `fallbackDigest`, then `onBundleFailure` (§5) | same | S4 — a filter does not start with rules it cannot verify |
+| Panic inside the filter | `503` as unreachable, and `dq_engine_panic` increments | pass through | recover at the RPC boundary, never mid-decision |
+
+**Decision required — one item.** The `503` above is a recommendation, not a law. The alternative is to let a dead filter surface as a `422`, on the argument that a gate which cannot answer has not passed the record. `503` is recommended because `422` asserts something about the caller's data that is not true, and because the exit-code registry below already separates content faults (`1`) from toolchain faults (`3`); the same discipline applied on the wire says the caller's data is not at fault. It needs a decision rather than a default, because it determines whether an engine outage pages the application team or the platform team.
+
+**Budgets.**
+
+| Quantity | Value | Why |
+|---|---|---|
+| `message_timeout` | 250 ms | A *give-up* ceiling, not an expected cost. The p99 budget is 1 ms (§8.1); a ceiling set near the budget turns a GC pause into a false `503` |
+| `maxRequestBytes` | policy, default 1 MiB | Matches the library adapter; exceeding it is step 4 |
+| Concurrency | one in-flight decision per stream, bounded worker pool | The engine is safe under concurrent calls (`-race`, eight goroutines); the pool bounds memory per buffered body, not correctness |
+| Memory | `maxRequestBytes` × pool + bundle | The bundle is resident; nothing is loaded per request |
+
+**Determinism (T4).** The same record through C7b and through C7c must produce a byte-identical violation set and the same `packDigest`. That is the claim [§6 of the architecture](solution-architecture.md#6-system-dynamics) makes for all three channels at once. A filter that binds `this` differently from the library adapter breaks it silently, because each looks correct on its own; the T3 harness therefore replays a corpus through both and compares bytes, not summaries.
 
 ---
 ## 3. `dqctl` command contract

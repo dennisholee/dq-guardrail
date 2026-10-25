@@ -32,8 +32,8 @@ A topic earns its own document only if all three are true: **different audience*
 |---|---|---|---|
 | `solution-architecture.md` | 1.2 | Revision 4 | At gate G1 |
 | `control-plane-operating-model.md` | 0.1 | Initial | Monthly at Platform Ops |
-| `delivery-design-pack.md` | 0.1 | Initial | At each wave gate |
-| `data-plane-operations-guide.md` | 0.1 | Initial | Weekly at Platform Ops |
+| `delivery-design-pack.md` | 0.2 | 2026-10-25 · §2.7 HTTP filter contract | At each wave gate |
+| `data-plane-operations-guide.md` | 0.2 | 2026-10-25 · F-13 and `dq.failures` | Weekly at Platform Ops |
 | `../steward-guide.md` | 0.1 | Initial | Quarterly |
 
 ## Validation

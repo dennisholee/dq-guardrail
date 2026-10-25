@@ -53,6 +53,7 @@ Telemetry uses OpenTelemetry instrument names with dots; Prometheus exposition c
 |---|---|---|---|---|---|
 | `dq.rules.evaluated` | counter | evaluations | `channel`, `intent`, `object`, `result` (pass/fail/skipped) | 3 × 6 × 20 × 3 = 1,080 | C6 |
 | `dq.violations` | counter | violations | `channel`, `rule_id`, `severity`, `dimension` | ~400 × 1 | C6 |
+| `dq.failures` | counter | failures | `code` (§2.6 failure codes), `channel` | 7 × 3 = 21 | C6, adapters |
 | `dq.duration` | histogram | seconds | `channel`, `outcome` | 3 × 3 = 9 | C6, adapters |
 | `dq.rule.skipped` | counter | rules skipped | `rule_id`, `reason` (cost_limit/provider/unavailable) | 400 × 3 = 1,200 | C6 |
 | `dq.rule.suppressed` | gauge | rules | `rule_id` | 400 | C6 |
@@ -90,6 +91,7 @@ Reported per channel and per object, never as a single estate-wide number — an
 | `DQ_ViolationSpike` | `rate(dq_violations[10m]) > 5 × avg_over_time(dq_violations[7d:1h])` | 10m | **P1** page | **trip the quality circuit breaker to `SHADOW`** | [F-06](#f-06--violation-spike) |
 | `DQ_RuleSkippedHigh` | `rate(dq_rule_skipped[15m]) / rate(dq_rules_evaluated[15m]) > 0.001` | 15m | P2 | none | [F-04](#f-04--rules-skipping) |
 | `DQ_EnginePanic` | `increase(dq_engine_panic[5m]) > 0` | 0m | **P1** page | revert to previous digest if latency also breached | [F-07](#f-07--engine-panic) |
+| `DQ_EngineUnavailable` | `rate(dq_failures{code="DQ_ENGINE_UNAVAILABLE"}[5m]) > 0` | 5m | **P1** page | none | [F-13](#f-13--engine-unavailable) |
 | `DQ_LatencyBudgetBreach` | `histogram_quantile(0.99, sum by (le) (rate(dq_duration_bucket{channel="http"}[10m]))) > 0.001` | 10m | P2 | none | [F-08](#f-08--latency-budget-breach) |
 | `DQ_GateLag` | `dq_gate_lag_records > 10000` | 10m | P2 | scale within `maxReplicas` | [F-09](#f-09--stream-gate-lag) |
 | `DQ_RejectionRateHigh` | `rate(dq_gate_rejected_records[10m]) / rate(dq_file_records[10m]) > 0.05` | 10m | **P1** page | pause forwarding when policy is `fail-file` | [F-10](#f-10--rejection-rate-high) |
@@ -222,6 +224,15 @@ Grouped by where the fault lives. Each is written for an engineer who has not se
 | **First 5 minutes** | `dqctl status --rule <id>` — has the rule been fixed and published? |
 | **Then** | Expired → enforcement has resumed automatically; confirm the false positive is genuinely gone before the next peak. Expiring → fix it, or renew with justification at DQ Council. |
 | **Escalate if** | Never a page. This is deliberately a governance item so that it cannot mask a technical incident. |
+
+#### F-13 · Engine unavailable
+
+| | |
+|---|---|
+| **Symptom** | `DQ_EngineUnavailable` — `503` with `DQ_ENGINE_UNAVAILABLE` in `ENFORCE`; request latency at the timeout in every mode |
+| **First 5 minutes** | Is the ext_proc service up, and is its bundle loaded? `dq_bundle_source` and the pod's start-up log answer both. Distinguish *unreachable* (the call never landed) from *slow* (the call landed and exceeded `message_timeout`) — the first is a platform fault, the second is usually rule cost or GC. |
+| **Then** | If unreachable: restart the service; it loads the pinned digest and serves within seconds. If slow: reduce rule cost rather than raising the timeout, for the same reason F-08 refuses to raise cost limits. **Do not switch the route to `SHADOW` to clear the alert** — that converts an availability incident into a coverage incident, and coverage is the thing the guardrail exists to hold. |
+| **Escalate if** | More than one workload is affected, or the service restarts repeatedly — that is a crash loop, and F-07 is the better page. |
 
 ---
 
