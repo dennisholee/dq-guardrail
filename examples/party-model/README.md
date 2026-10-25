@@ -227,9 +227,11 @@ id); a record that breaks an authored rule; a valid record that must still repor
 ran; a waived rule that is recorded rather than enforced; a rule that cannot be evaluated
 against a record that is structurally valid (it fails closed, naming the rule, rather than
 becoming a 500); a record that exceeds the gate's size limit (refused with `413` in enforce
-mode, passed through byte-for-byte in shadow and warn); and the HTTP adapter's four behaviours
-(enforce rejects, shadow and warn pass through, warn annotates, unparseable bodies and unrouted
-paths are left to the service).
+mode, passed through byte-for-byte in shadow and warn); a body that is not JSON (refused
+with `415` in enforce, passed through in shadow and warn) and a pack that does not compile
+(`500` in enforce, pass-through in warn), because a silent pass is the failure this gate
+exists to prevent; and the HTTP adapter's four behaviours (enforce rejects, shadow and warn
+pass through, warn annotates, and unrouted paths are left to the service).
 
 Five of those were **not** injected. The wildcard `path` check found three real violations
 that had been in the rules since they were written. `L3` found that the change-address

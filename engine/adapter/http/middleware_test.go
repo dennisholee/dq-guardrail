@@ -138,17 +138,6 @@ func TestAcceptedRequestCarriesTheDigest(t *testing.T) {
 	}
 }
 
-// TestUnparseableBodyPassesThrough: a body this gate cannot read is not a violation; the
-// service owns its own 400 semantics.
-func TestUnparseableBodyPassesThrough(t *testing.T) {
-	h, reached := setup(t, engine.ModeEnforce)
-	rec := post(t, h, "not json at all")
-
-	if rec.Code != http.StatusCreated || *reached != 1 {
-		t.Fatalf("expected pass-through: code=%d reached=%d", rec.Code, *reached)
-	}
-}
-
 // TestUnroutedPathPassesThrough: only declared endpoints are decided.
 func TestUnroutedPathPassesThrough(t *testing.T) {
 	h, reached := setup(t, engine.ModeEnforce)
