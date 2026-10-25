@@ -58,7 +58,7 @@ docker logs "$EXTPROC" 2>&1 | grep -q 'deciding /' || { docker logs "$EXTPROC" 2
 docker logs "$EXTPROC" 2>&1 | sed 's/^/       /'
 
 echo "starting envoy ($IMG)"
-docker run -d --rm --name "$ENVOY" --network "$NET" \
+docker run -d --rm --name "$ENVOY" --network "$NET" --network-alias envoy \
   -p "$PORT:8000" \
   -v "$PWD/ci/e2e/envoy.yaml:/etc/envoy/envoy.yaml:ro" \
   "$IMG" -c /etc/envoy/envoy.yaml --log-level warn >/dev/null
@@ -77,47 +77,70 @@ echo "assertions"
 # The upstream is queried directly, not through Envoy: measuring it through the system under
 # test would measure the system under test — and it fails closed, so the probe would fail too.
 hits() { curl -s "http://127.0.0.1:$HITS_PORT/__hits"; }
+before=$(hits)
 
 # 1. a clean record reaches the upstream
 code=$(curl -s -o "$WORK/b1" -w '%{http_code}' -D "$WORK/h1" -X POST \
   -H 'content-type: application/json' --data "$valid" "http://127.0.0.1:$PORT/onboard-party")
 [[ "$code" == "201" ]] || { cat "$WORK/b1"; fail "clean record: want 201 from the upstream, got $code"; }
 grep -qi '^DQ-Pack-Digest: sha256:' "$WORK/h1" || fail "clean record: no DQ-Pack-Digest on the response"
-[[ "$(hits)" == "1" ]] || fail "clean record: the upstream saw $(hits) requests, expected 1"
+after=$(hits)
+[[ "$after" == "$((before + 1))" ]] || fail "clean record: upstream went $before -> $after, expected +1"
 pass "a clean record reaches the upstream, which records it, and the caller gets the digest"
 
 # 2. an invalid record is refused inside the proxy — the upstream must not see it
+before=$(hits)
 code=$(curl -s -o "$WORK/b2" -w '%{http_code}' -X POST \
   -H 'content-type: application/json' --data "$invalid" "http://127.0.0.1:$PORT/onboard-party")
 [[ "$code" == "422" ]] || { cat "$WORK/b2"; fail "invalid record: want 422 from the filter, got $code"; }
 grep -q '"violations"' "$WORK/b2" || fail "invalid record: the body is not a problem document"
-[[ "$(hits)" == "1" ]] || fail "invalid record: the upstream was called ($(hits) hits) — the filter did not intercept"
+[[ "$(hits)" == "$before" ]] || fail "invalid record: the upstream was called — the filter did not intercept"
 pass "an invalid record is refused before the upstream, which never sees it"
 
 # 3. a body that is not JSON is a platform failure, not a violation
+before=$(hits)
 code=$(curl -s -o "$WORK/b3" -w '%{http_code}' -X POST \
   -H 'content-type: application/json' --data 'not json' "http://127.0.0.1:$PORT/onboard-party")
 [[ "$code" == "415" ]] || { cat "$WORK/b3"; fail "non-JSON: want 415, got $code"; }
 grep -q 'DQ_UNSUPPORTED_MEDIA_TYPE' "$WORK/b3" || fail "non-JSON: wrong failure code"
-[[ "$(hits)" == "1" ]] || fail "non-JSON: the upstream was called ($(hits) hits)"
+[[ "$(hits)" == "$before" ]] || fail "non-JSON: the upstream was called"
 pass "a non-JSON body is 415, and says it could not tell rather than blaming the data"
 
 # 4. an unrouted path is not decided
+before=$(hits)
 code=$(curl -s -o "$WORK/b4" -w '%{http_code}' -X POST \
   -H 'content-type: application/json' --data 'not json' "http://127.0.0.1:$PORT/anything-else")
 [[ "$code" == "201" ]] || { cat "$WORK/b4"; fail "unrouted: want the upstream's 201, got $code"; }
-[[ "$(hits)" == "2" ]] || fail "unrouted: the upstream was not reached ($(hits) hits)"
+[[ "$(hits)" == "$((before + 1))" ]] || fail "unrouted: the upstream was not reached"
 pass "an unrouted path passes through untouched"
 
-# 5. the filter's absence rejects traffic, because §2.7 sets failure_mode_allow: false.
+# 5. concurrency smoke: 300 requests through the proxy at 20 in flight, and every one must be
+# answered. This asserts the only thing this environment can assert. It does *not* measure the
+# latency budget: run-to-run variance here is larger than the 1 ms the design budgets (two runs
+# against the same endpoint differed 10x at p99), so a threshold would be asserting noise.
+echo "concurrency smoke (T5 latency is not measurable here — see the note it prints)"
+GOOS=linux GOARCH="$(go env GOARCH)" go build -o "$WORK/e2eload" ./ci/e2e/load
+chmod +x "$WORK/e2eload"
+printf '%s' "$valid" > "$WORK/payload.json"
+out=$(docker run --rm --network "$NET" \
+  -v "$WORK/e2eload:/bin/e2eload:ro" -v "$WORK/payload.json:/payload.json:ro" \
+  alpine:latest /bin/e2eload \
+  --direct http://upstream:8080/onboard-party \
+  --proxied http://envoy:8000/onboard-party \
+  --payload /payload.json --n "${LOAD_N:-300}" --c "${LOAD_C:-20}" 2>&1) || { echo "$out" | sed 's/^/       /'; fail "requests failed under concurrency"; }
+echo "$out" | sed 's/^/       /'
+pass "every request was answered under concurrency"
+
+# 6. the filter's absence rejects traffic, because §2.7 sets failure_mode_allow: false.
 # Envoy's own status varies with how the call fails — 500 when it cannot connect, 504 when the
 # message timeout expires — so the assertion is that it fails closed at all, not which 5xx.
+before=$(hits)
 docker rm -f "$EXTPROC" >/dev/null
 sleep 1
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
   -H 'content-type: application/json' --data "$valid" "http://127.0.0.1:$PORT/onboard-party")
 [[ "$code" == 5?? ]] || fail "filter down: want a 5xx from Envoy, got $code"
-[[ "$(hits)" == "2" ]] || fail "filter down: the upstream was called anyway ($(hits) hits)"
+[[ "$(hits)" == "$before" ]] || fail "filter down: the upstream was called anyway"
 pass "with the filter gone, ENFORCE fails closed (${code}) rather than passing the record"
 
-echo "all five assertions held: envoy is intercepting, validating, and failing closed"
+echo "all six assertions held: envoy intercepts, validates, answers under concurrency, and fails closed"

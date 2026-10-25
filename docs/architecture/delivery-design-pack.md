@@ -595,6 +595,15 @@ verdict, or if the two HTTP implementations render different problem documents. 
 drops a rule, binds `this` differently or skips a provider now breaks a test instead of a
 customer's expectations.
 
+**T5 is not measurable where this is being written, and the harness says so.** The load tool
+drives the same payload direct-to-upstream and through Envoy, which is the right comparison for
+"added latency" — but on Docker Desktop for macOS the run-to-run variance is larger than the
+1 ms the design budgets. Two runs against the *same* endpoint differed by 10× at p99. A threshold
+there would be asserting noise, so `ci/e2e/extproc.sh` asserts only what the environment can
+prove: 300 requests at 20 in flight through the proxy, and not one error. The NFR stays open until
+it is measured on a quiet host with the §8.1 load profile; a laptop number presented as a p99
+would be exactly the "vendor claim or design estimate" this pack refuses.
+
 Three defects came out of writing it, and none would have been found by a unit test with a fake stream: a header mutation sent in the request phase travels **upstream**, so `DQ-Pack-Digest` never reached the caller until this section required the response phase; a `direct_response` route is a *local reply*, which ext_proc skips entirely, so the first harness could not observe its own response header; and the daemon must listen on both families, because Envoy resolved a host-gateway name to IPv6 while the service bound IPv4.
 
 ---
