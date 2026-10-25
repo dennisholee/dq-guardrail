@@ -1,0 +1,96 @@
+{
+  "planFormat": 1,
+  "channel": "http",
+  "intent": "change",
+  "object": "contactpoint",
+  "objectVersion": "1.0.0",
+  "schemaMatcher": {
+    "ref": "https://registry.internal/dq/schemas/contactpoint/1.0.0",
+    "digest": "sha256:2457e3e4e32ef88dd97955e79296e5af271589b1cf7928e7d3f7476e69191b3a"
+  },
+  "providers": [
+    "valueset",
+    "refdata"
+  ],
+  "rules": [
+    {
+      "id": "SYN-CPT-001",
+      "tier": 0,
+      "severity": "MINOR",
+      "dimension": "uniqueness",
+      "assert": "!this.contacts.exists(c1, this.contacts.filter(c2, c2.type == c1.type).size() > 1)",
+      "origin": "object"
+    },
+    {
+      "id": "SEM-CHG-001",
+      "tier": 1,
+      "severity": "MAJOR",
+      "dimension": "validity",
+      "when": "'previous' in this",
+      "assert": "!(this.previous.address.country != this.contactpoint.contacts[0].address.country && this.previous.address.street1 != this.contactpoint.contacts[0].address.street1)",
+      "origin": "intent"
+    },
+    {
+      "id": "SEM-CHG-002",
+      "tier": 1,
+      "severity": "MAJOR",
+      "dimension": "timeliness",
+      "when": "'effectiveFrom' in this",
+      "assert": "timestamp(this.effectiveFrom) >= now() - duration('720h')",
+      "origin": "intent"
+    },
+    {
+      "id": "SEM-CHG-003",
+      "tier": 1,
+      "severity": "MAJOR",
+      "dimension": "consistency",
+      "when": "'lastChange' in this",
+      "assert": "now() - timestamp(this.lastChange.changedAt) >= duration('2160h')",
+      "origin": "intent"
+    },
+    {
+      "id": "SEM-CHG-004",
+      "tier": 1,
+      "severity": "MAJOR",
+      "dimension": "validity",
+      "assert": "size(this.contactpoint.contacts) == 1",
+      "origin": "intent"
+    },
+    {
+      "id": "SEM-CPT-001",
+      "tier": 1,
+      "severity": "CRITICAL",
+      "dimension": "validity",
+      "assert": "!this.contacts.exists(c, (c.address.country == 'GB' && !c.address.postalCode.matches('^[A-Z]{1,2}[0-9][0-9A-Z]? ?[0-9][A-Z]{2}$')) || (c.address.country == 'NG' && !c.address.postalCode.matches('^[0-9]{6}$')) || (c.address.country == 'US' && !c.address.postalCode.matches('^[0-9]{5}(-[0-9]{4})?$')))",
+      "origin": "object"
+    },
+    {
+      "id": "SEM-CPT-002",
+      "tier": 1,
+      "severity": "MAJOR",
+      "dimension": "completeness",
+      "assert": "!this.contacts.exists(c, ((c.address.country == 'US' || c.address.country == 'CA') && !('administrativeArea' in c.address)))",
+      "origin": "object"
+    },
+    {
+      "id": "SEM-CPT-003",
+      "tier": 1,
+      "severity": "MAJOR",
+      "dimension": "accuracy",
+      "when": "this.contacts.exists(c, c.address.country == 'GB')",
+      "assert": "!this.contacts.exists(c, c.address.country == 'GB' && refdata.exists(r, r.postalCode == c.address.postalCode && r.locality.upperAscii() != c.address.city.upperAscii()))",
+      "needs": [
+        "refdata"
+      ],
+      "origin": "object"
+    },
+    {
+      "id": "SEM-CPT-004",
+      "tier": 1,
+      "severity": "MINOR",
+      "dimension": "consistency",
+      "assert": "!this.contacts.exists(c1, c1.type == 'HOME' && this.contacts.exists(c2, c2.type == 'CORRESPONDENCE' && c2.address.postalCode == c1.address.postalCode && c2.address.city != c1.address.city))",
+      "origin": "object"
+    }
+  ]
+}

@@ -1,0 +1,158 @@
+# ci/dqctl-align.yml
+#
+# Contract-to-rule alignment, conformance and publication pipeline.
+# Implements docs/architecture/solution-architecture.md Fig 9 and §7.2.
+#
+# STATUS: working. Every gate below exists in `tools/dqctl` and is green against the worked
+# sample. Three things are deliberately absent, and each is marked where it belongs:
+#
+#   1. `x-dq-rules` is generated into a sidecar file, not embedded into each operation. The
+#      available YAML emitter collapses folded blocks and reindents the contract file, which
+#      would rewrite it on every hand edit. See examples/party-model/README.md.
+#   2. The registry push inside `dqctl publish` is not implemented. The pipeline builds and
+#      inspects the OCI layout locally and stops short of pushing, so signing does not run.
+#   3. The Spectral step has not been executed on the authoring machine: spectral-cli 6
+#      fails to resolve a nested module under Node 25. CI pins Node 20, where it should run;
+#      treat its first CI run as the verification, not this comment.
+#
+# The artefact tree is `examples/party-model` because that is where the sampled domain lives.
+# Every dqctl step takes an explicit --root, so promoting the sample to the repository root
+# later means changing DQ_ROOT and nothing else.
+#
+# Gates, in execution order (cheapest first):
+#   L2  Spectral           path shape, x-dq-* declarations, 422 contract
+#   --  dqctl validate     every document against catalog/schemas, plus the digest chain
+#   S2  dqctl lint         no literal enumerations in rules (value sets only)
+#   L1  dqctl align        contracts $ref the canonical schema
+#   L3  dqctl align        a request must not shadow a field the contract defines
+#   L4  dqctl align        every rule field exists
+#   S5  dqctl generate     generated artefacts are fresh
+#   L5  dqctl test         rule fixtures (pass / fail / edge)
+#   --  dqctl bundle       manifest fresh, then compile the archive
+#   --  dqctl publish      write and inspect the OCI image layout
+
+name: dq-align
+
+on:
+  pull_request:
+    paths:
+      - "catalog/**"
+      - "rules/**"
+      - "spec/**"
+      - "bindings/**"
+      - "examples/**"
+      - "tools/**"
+      - "engine/**"
+      - "ci/**"
+      - "docs/**"
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write   # kept for the day keyless signing runs
+  packages: write
+
+env:
+  SPECTRAL_CLI: "@stoplight/spectral-cli@6"
+  DQ_ROOT: examples/party-model
+
+jobs:
+  align:
+    name: Align, test, package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Set up Node (Spectral)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Docs - resolve cross-document links and validate SVG figures
+        run: make -C docs/architecture check
+
+      - name: Build dqctl
+        run: go build -o bin/dqctl ./tools/dqctl
+
+      - name: Unit tests - the checker's own defect suite
+        run: go test ./...
+
+      # The HTTP adapter serves requests concurrently, so the engine is shared across
+      # goroutines by design. A plain map in the program cache passes every sequential test and
+      # kills the process under load; only -race sees it.
+      - name: Race - the engine under concurrent requests
+        run: go test -race ./...
+
+      - name: L2 - Spectral alignment lint
+        run: npx --yes $SPECTRAL_CLI lint "$DQ_ROOT/spec/openapi/*.yaml" --ruleset ci/spectral.yaml
+
+      - name: Validate - documents, schemas and the digest chain
+        run: ./bin/dqctl validate --root "$DQ_ROOT" --schemas catalog/schemas
+
+      - name: S2 - Rule lint (value sets only)
+        run: ./bin/dqctl lint --root "$DQ_ROOT"
+
+      - name: L1/L3/L4 - Contract to schema alignment
+        run: ./bin/dqctl align --root "$DQ_ROOT" --check
+
+      - name: S5 - Generated artefacts are fresh
+        run: |
+          ./bin/dqctl generate  --root "$DQ_ROOT" --check
+          ./bin/dqctl scorecard --root "$DQ_ROOT" --check
+
+      - name: L5 - Rule fixtures
+        run: ./bin/dqctl test --root "$DQ_ROOT"
+
+      - name: Evidence - the committed manifest still describes the tree
+        run: ./bin/dqctl bundle --root "$DQ_ROOT" --check
+
+      - name: Compile bundle
+        run: ./bin/dqctl bundle --root "$DQ_ROOT" --out dist/dq-bundle.tar.gz
+
+      - name: Publish - write and inspect the OCI image layout
+        run: ./bin/dqctl publish --bundle dist/dq-bundle.tar.gz --layout dist/oci
+
+      # Read the layout back the way a consumer would, and hash every byte. Publishing proves the
+      # layout is well formed; this proves the digests in it still name the content — which is the
+      # only claim a binding's pin actually rests on.
+      - name: Verify - the layout's digests still name its bytes
+        run: ./bin/dqctl verify --layout dist/oci --contents
+
+      - name: Upload the bundle and layout
+        uses: actions/upload-artifact@v4
+        with:
+          name: dq-bundle
+          path: dist/
+          if-no-files-found: error
+
+      # Registry push, SBOM and signing are M1.3's remaining work. When `dqctl publish` gains
+      # a registry client, this block replaces the local publish step above:
+      #
+      # - name: Install cosign
+      #   uses: sigstore/cosign-installer@v3
+      # - name: Install syft
+      #   uses: anchore/sbom-action/download-syft@v0
+      # - name: Publish bundle as an OCI artefact (main only)
+      #   id: publish
+      #   if: github.ref == 'refs/heads/main'
+      #   run: |
+      #     ref=$(./bin/dqctl publish \
+      #       --bundle dist/dq-bundle.tar.gz \
+      #       --registry ghcr.io/${{ github.repository_owner }}/dq-bundle)
+      #     echo "ref=$ref" >> "$GITHUB_OUTPUT"
+      # - name: Sign, attest and verify (main only)
+      #   if: github.ref == 'refs/heads/main'
+      #   run: |
+      #     cosign sign --yes "${{ steps.publish.outputs.ref }}"
+      #     syft "${{ steps.publish.outputs.ref }}" -o cyclonedx-json > sbom.cdx.json
+      #     cosign attest --yes --predicate sbom.cdx.json --type cyclonedx "${{ steps.publish.outputs.ref }}"
+      #     cosign verify "${{ steps.publish.outputs.ref }}" \
+      #       --certificate-identity-regexp "${{ github.workflow_ref }}" \
+      #       --certificate-oidc-issuer "https://token.actions.githubusercontent.com"

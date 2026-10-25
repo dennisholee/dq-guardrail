@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"party\": {\"partyId\": \"PTY-00000000\"},\"\":{\"\":\"CUSTOMER\"}}")

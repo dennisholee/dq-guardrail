@@ -1,0 +1,97 @@
+apiVersion: dq/v1
+kind: IntentPack
+metadata:
+  name: intent.change
+  version: 1.0.0
+  owner: Customer Data Office
+  alias: Change address
+spec:
+  intent: change
+
+  appliesTo: [contactpoint]
+
+  profile:
+    schemaUses: request
+    expectPrecondition: true
+    idempotency: required
+
+  rules:
+    - id: SEM-CHG-001
+      when: "'previous' in this"
+      assert: "!(this.previous.address.country != this.contactpoint.contacts[0].address.country && this.previous.address.street1 != this.contactpoint.contacts[0].address.street1)"
+      message: A change of country and street together is a relocation, not an address correction
+      severity: MAJOR
+      dimension: validity
+      path: $.contactpoint.contacts
+
+    - id: SEM-CHG-002
+      when: "'effectiveFrom' in this"
+      assert: "timestamp(this.effectiveFrom) >= now() - duration('720h')"
+      message: An address change may not be backdated by more than 30 days
+      severity: MAJOR
+      dimension: timeliness
+      path: $.effectiveFrom
+
+    - id: SEM-CHG-003
+      when: "'lastChange' in this"
+      assert: "now() - timestamp(this.lastChange.changedAt) >= duration('2160h')"
+      message: An address may not be changed again within 90 days of the previous change
+      severity: MAJOR
+      dimension: consistency
+      path: $.lastChange.changedAt
+
+    - id: SEM-CHG-004
+      assert: "size(this.contactpoint.contacts) == 1"
+      message: A change request addresses exactly one contact point
+      severity: MAJOR
+      dimension: validity
+      path: $.contactpoint.contacts
+
+  # SEM-CHG-002 and SEM-CHG-003 read the clock, so they cannot have a deterministic fixture.
+  # Their absence here is deliberate and is why they are runtime-only.
+  tests:
+    - rule: SEM-CHG-001
+      expect: pass
+      note: A corrected street inside the same country
+      input:
+        contactpoint:
+          partyId: PTY-00000001
+          contacts:
+            - type: HOME
+              address: { street1: 16 Marina Road, city: Lagos, postalCode: "101241", country: NG }
+        previous:
+          address: { street1: 14 Marina Road, city: Lagos, postalCode: "101241", country: NG }
+
+    - rule: SEM-CHG-001
+      expect: fail
+      note: Country and street changed together — a relocation, not a correction
+      input:
+        contactpoint:
+          partyId: PTY-00000001
+          contacts:
+            - type: HOME
+              address: { street1: 30 St Mary Axe, city: London, postalCode: "EC3A 8BF", country: GB }
+        previous:
+          address: { street1: 14 Marina Road, city: Lagos, postalCode: "101241", country: NG }
+
+    - rule: SEM-CHG-004
+      expect: pass
+      note: One contact point, as a change request should carry
+      input:
+        contactpoint:
+          partyId: PTY-00000001
+          contacts:
+            - type: HOME
+              address: { street1: 16 Marina Road, city: Lagos, postalCode: "101241", country: NG }
+
+    - rule: SEM-CHG-004
+      expect: fail
+      note: Two contacts — which one is being changed is undefined
+      input:
+        contactpoint:
+          partyId: PTY-00000001
+          contacts:
+            - type: HOME
+              address: { street1: 16 Marina Road, city: Lagos, postalCode: "101241", country: NG }
+            - type: BUSINESS
+              address: { street1: 2 Broad Street, city: Lagos, postalCode: "101241", country: NG }

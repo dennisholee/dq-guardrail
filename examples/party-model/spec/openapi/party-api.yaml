@@ -1,0 +1,181 @@
+openapi: 3.1.0
+info:
+  title: Party API
+  version: 1.0.0
+  description: >-
+    Customer data management for the party domain. Every schema below is a reference to
+    the canonical contract in `catalog/business-objects/` — never a restatement. A
+    restated field is a field that will drift, and drift between the API contract and the
+    validated object is the failure this repository exists to prevent.
+    Each canonical contract carries an absolute `$id`; per JSON Schema that `$id` rebases
+    the base URI for the file's own internal references, which is why the `#/$defs/...`
+    pointers inside them resolve correctly from here.
+
+servers:
+  - url: https://api.example.internal
+    description: Production
+
+paths:
+  /onboard-party:
+    post:
+      operationId: onboardParty
+      summary: Onboard a customer
+      description: >-
+        Composite request. `party`, `relationship` and `contactPoints[]` are each a
+        canonical object; the envelope is a contract-level composite and is deliberately
+        not added to the catalog, because the catalog holds business objects, not request
+        shapes.
+      x-dq-intent: onboard
+      x-dq-object: party
+      x-dq-object-version: 1.0.0
+      x-dq-binding: party-service
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' }
+          description: ULID. Required because intent.onboard declares idempotency required.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OnboardPartyRequest' }
+            examples:
+              individual:
+                summary: Amara Okafor, Lagos
+                value:
+                  party:
+                    partyId: PTY-00000001
+                    individual:
+                      names:
+                        - { type: FIRST, value: Amara }
+                        - { type: LAST, value: Okafor }
+                      documents:
+                        - { type: PASSPORT, issuingCountry: NG, value: A01234567 }
+                  relationship:
+                    partyReferenceId: CIF-000123456
+                    partyId: PTY-00000001
+                    type: CUSTOMER
+                    lineOfBusiness: RETAIL
+                  contactPoints:
+                    - partyId: PTY-00000001
+                      contacts:
+                        - type: HOME
+                          address: { street1: 14 Marina Road, city: Lagos, postalCode: "101241", country: NG }
+                        - type: CORRESPONDENCE
+                          address: { street1: 14 Marina Road, city: Lagos, postalCode: "101241", country: NG }
+      responses:
+        '201':
+          description: Party, relationship and contact points created
+          headers:
+            x-dq-pack-digest:
+              schema: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+              description: Digest of the pack set that decided this request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OnboardPartyResponse' }
+        '422':
+          description: One or more violations. The body is the RFC 9457 problem envelope from the violation schema.
+          content:
+            application/problem+json:
+              schema: { $ref: '../../../../catalog/schemas/violation.schema.yaml#/$defs/problem' }
+
+  /change-contactpoint:
+    post:
+      operationId: changeContactPoint
+      summary: Change a party's address
+      description: >-
+        Address correction only. A change of country and street together is a relocation
+        and is refused by SEM-CHG-001 — a different intent with different evidence
+        requirements, not the same endpoint with a flag.
+      x-dq-intent: change
+      x-dq-object: contactpoint
+      x-dq-object-version: 1.0.0
+      x-dq-binding: party-service
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeAddressRequest' }
+      responses:
+        '200':
+          description: Address changed
+          headers:
+            x-dq-pack-digest:
+              schema: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChangeAddressResponse' }
+        '422':
+          description: One or more violations
+          content:
+            application/problem+json:
+              schema: { $ref: '../../../../catalog/schemas/violation.schema.yaml#/$defs/problem' }
+
+components:
+  schemas:
+    Party:
+      $ref: '../../catalog/business-objects/party.json'
+    PartyRelationship:
+      $ref: '../../catalog/business-objects/partyrelationship.json'
+    ContactPoint:
+      $ref: '../../catalog/business-objects/contactpoint.json'
+
+    OnboardPartyRequest:
+      type: object
+      additionalProperties: false
+      required: [party, relationship, contactPoints]
+      properties:
+        party: { $ref: '#/components/schemas/Party' }
+        relationship: { $ref: '#/components/schemas/PartyRelationship' }
+        contactPoints:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items: { $ref: '#/components/schemas/ContactPoint' }
+
+    OnboardPartyResponse:
+      type: object
+      additionalProperties: false
+      required: [partyId, partyReferenceId, correlationId]
+      properties:
+        partyId: { type: string, pattern: '^PTY-[0-9]{8}$' }
+        partyReferenceId: { type: string, pattern: '^CIF-[0-9]{9}$' }
+        correlationId: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' }
+
+    ChangeAddressRequest:
+      type: object
+      additionalProperties: false
+      required: [contactpoint]
+      properties:
+        # The object under its own name, as every write intent does, so tier 0 validates the
+        # object and the intent rules see the whole request. Context stays at the root,
+        # because a closed contract cannot carry it.
+        contactpoint:
+          $ref: '#/components/schemas/ContactPoint'
+        previous:
+          type: object
+          additionalProperties: true
+          description: Read-before-write. SEM-CHG-001 compares country and street against it.
+        effectiveFrom:
+          type: string
+          format: date-time
+        lastChange:
+          type: object
+          additionalProperties: false
+          properties:
+            changedAt: { type: string, format: date-time }
+
+    ChangeAddressResponse:
+      type: object
+      additionalProperties: false
+      required: [partyId, effectiveFrom, correlationId]
+      properties:
+        partyId: { type: string, pattern: '^PTY-[0-9]{8}$' }
+        effectiveFrom: { type: string, format: date-time }
+        correlationId: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' }

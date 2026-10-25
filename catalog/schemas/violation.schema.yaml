@@ -1,0 +1,49 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://registry.internal/dq/schemas/violation.schema.yaml
+title: Violation
+description: >-
+  The single violation object all three channel renderings are built from. Platform
+  failures (DQ_BUNDLE_UNVERIFIED and friends) are deliberately not violations: they
+  reduce coverage rather than quality and must be separable in metrics.
+type: object
+additionalProperties: false
+required: [schemaVersion, violations]
+properties:
+  schemaVersion: { const: "1.0" }
+  violations:
+    type: array
+    minItems: 1
+    items: { $ref: '#/$defs/violation' }
+$defs:
+  violation:
+    type: object
+    additionalProperties: false
+    required: [ruleId, severity, path, dimension, intent, object, objectVersion, packDigest, correlationId, message, retryable]
+    properties:
+      ruleId: { type: string, pattern: '^(SYN|SEM|STA)-[A-Z]{3}-[0-9]{3}$' }
+      severity: { enum: [CRITICAL, MAJOR, MINOR] }
+      path: { type: string, pattern: '^\$(\.[A-Za-z_][A-Za-z0-9_]*|\[[0-9]+\])*$' }
+      dimension: { enum: [completeness, validity, accuracy, consistency, uniqueness, timeliness] }
+      intent: { type: string, pattern: '^[a-z][a-z0-9]*$' }
+      object: { type: string, pattern: '^[a-z][a-z0-9]*$' }
+      objectVersion: { type: string, pattern: '^[0-9]+\.[0-9]+\.[0-9]+$' }
+      packDigest: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+      correlationId: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' }
+      message: { type: string, minLength: 1, maxLength: 200 }
+      retryable: { type: boolean }
+  problem:
+    type: object
+    additionalProperties: false
+    required: [type, title, status, detail, violations]
+    properties:
+      type: { type: string, pattern: '^https://' }
+      title: { type: string, maxLength: 120 }
+      status: { const: 422 }
+      detail: { type: string, maxLength: 500 }
+      instance: { type: string, pattern: '^/' }
+      correlationId: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' }
+      packDigest: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+      violations:
+        type: array
+        minItems: 1
+        items: { $ref: '#/$defs/violation' }

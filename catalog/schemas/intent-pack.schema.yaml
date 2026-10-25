@@ -1,0 +1,58 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://registry.internal/dq/schemas/intent-pack.schema.yaml
+title: Intent pack
+description: >-
+  Obligations that belong to a business intent rather than to an object. There is no
+  `syntax` block and no `fromSchema`: structure always belongs to the object. An intent
+  adds obligations and can never subtract one, except through a `relax` block, which
+  requires two named approvers and an expiry. Rule IDs in an intent pack use the intent
+  registry's three-letter code, e.g. SEM-ONB-001.
+type: object
+additionalProperties: false
+required: [apiVersion, kind, metadata, spec]
+properties:
+  apiVersion: { const: dq/v1 }
+  kind: { const: IntentPack }
+  metadata:
+    type: object
+    additionalProperties: false
+    required: [name, version, owner]
+    properties:
+      name: { type: string, pattern: '^intent\.[a-z][a-z0-9]*$' }
+      version:
+        type: string
+        pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+      owner: { type: string, minLength: 2 }
+      alias: { type: string, maxLength: 60 }
+  spec:
+    type: object
+    additionalProperties: false
+    required: [intent, appliesTo, rules]
+    properties:
+      intent: { type: string, pattern: '^[a-z][a-z0-9]*$' }
+      appliesTo:
+        type: array
+        minItems: 1
+        uniqueItems: true
+        items: { type: string, pattern: '^[a-z][a-z0-9]*$' }
+      rules:
+        type: array
+        minItems: 1
+        items: { $ref: 'quality-pack.schema.yaml#/$defs/rule' }
+      profile:
+        type: object
+        additionalProperties: false
+        properties:
+          schemaUses: { enum: [request, response] }
+          expectPrecondition: { type: boolean }
+          idempotency: { enum: [required, optional, not-applicable] }
+      relax:
+        type: array
+        items: { $ref: 'quality-pack.schema.yaml#/$defs/relax' }
+      tests:
+        type: array
+        description: >-
+          Fixtures for intent rules. The input is the composite request, which is still a
+          mapping, so the same fixture shape as an object pack applies. Rules that read the
+          clock cannot have a deterministic fixture and are expected to omit one.
+        items: { $ref: 'quality-pack.schema.yaml#/$defs/fixture' }

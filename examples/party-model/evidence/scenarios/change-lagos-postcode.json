@@ -1,0 +1,18 @@
+{
+  "intent": "change",
+  "object": "contactpoint",
+  "correlationId": "01J8Z6Q4W9M8N7P6Q5R4S3T2V7",
+  "note": "A London postcode on a Lagos address. The deliberate failure.",
+  "payload": {
+    "contactpoint": {
+      "partyId": "PTY-00000006",
+      "contacts": [
+        {
+          "type": "HOME",
+          "address": { "street1": "14 Marina Road", "city": "Lagos", "postalCode": "SW1A 1AA", "country": "NG" }
+        }
+      ]
+    }
+  }
+}
+

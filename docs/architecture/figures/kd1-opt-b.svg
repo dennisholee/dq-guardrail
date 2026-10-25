@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 250" width="740" height="250" role="img" aria-label="Option B: ext_proc sidecar">
+  <defs>
+    <marker id="mB" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+      <path d="M0,0 L9,3.5 L0,7 z" fill="#5B6B7F"/>
+    </marker>
+  </defs>
+  <rect width="740" height="250" fill="#F7F9FC"/>
+  <text x="20" y="26" font-family="Segoe UI,Inter,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#101828">Option B — ext_proc sidecar (external gRPC processing)</text>
+
+  <rect x="20" y="104" width="100" height="52" rx="6" fill="#FFFFFF" stroke="#5B6B7F" stroke-width="1.5"/>
+  <text x="70" y="134" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#1D2939">Client</text>
+
+  <rect x="150" y="52" width="180" height="156" rx="8" fill="#EEF7F5" stroke="#0F7B6C" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="240" y="70" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#0F7B6C">Pod A</text>
+
+  <rect x="164" y="82" width="152" height="46" rx="5" fill="#FFFFFF" stroke="#5B6B7F" stroke-width="1.2"/>
+  <text x="240" y="101" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#1D2939">Envoy</text>
+  <text x="240" y="117" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="10" fill="#475467">ext_proc client</text>
+
+  <rect x="164" y="146" width="152" height="46" rx="5" fill="#FFFFFF" stroke="#5B6B7F" stroke-width="1.2"/>
+  <text x="240" y="173" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#1D2939">App container</text>
+
+  <rect x="380" y="86" width="176" height="88" rx="6" fill="#DCF0EA" stroke="#0F7B6C" stroke-width="2"/>
+  <text x="468" y="112" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#0B5A4F">DQ service (C7b)</text>
+  <text x="468" y="129" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#0B5A4F">engine C6 + gRPC</text>
+  <text x="468" y="146" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#0B5A4F">streams body in/out</text>
+  <text x="468" y="163" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#B42318">+50 MB · +1 pod</text>
+
+  <line x1="120" y1="130" x2="162" y2="130" stroke="#5B6B7F" stroke-width="1.5" marker-end="url(#mB)"/>
+  <line x1="316" y1="100" x2="378" y2="112" stroke="#0F7B6C" stroke-width="1.8" marker-end="url(#mB)"/>
+  <line x1="378" y1="150" x2="316" y2="134" stroke="#0F7B6C" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#mB)"/>
+  <text x="326" y="86" font-family="Segoe UI,Arial,sans-serif" font-size="10" fill="#0F7B6C">gRPC PROCESSING_REQUEST</text>
+  <line x1="240" y1="128" x2="240" y2="144" stroke="#5B6B7F" stroke-width="1.5" marker-end="url(#mB)"/>
+
+  <text x="20" y="232" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#475467">2 loopback hops + gRPC framing · ~0.5–1.5 ms p99 · response mutation and large bodies supported · easiest to debug</text>
+</svg>

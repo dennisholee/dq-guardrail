@@ -1,0 +1,107 @@
+# ci/spectral.yaml
+#
+# L2 of the contract-to-rule alignment gate (see docs/architecture/solution-architecture.md §7.2).
+# Scope: syntactic, local properties of the OpenAPI document only.
+# Out of scope here (implemented in `dqctl align`, which needs the object registry):
+#   - does {businessObject} resolve to a registered object?
+#   - is the contract strictly narrower-or-equal to the canonical schema (L3)?
+#   - does every rule field exist in the contract, and every contract field have a rule (L4)?
+#
+# Usage:
+#   npx @stoplight/spectral-cli lint "spec/openapi/*.yaml" --ruleset ci/spectral.yaml
+#
+# NOTE: rules marked [M1] require the custom functions delivered in milestone M1.
+# The rules without that marker work with Spectral built-ins today.
+
+extends:
+  - "spectral:oas"
+
+rules:
+  # ---------------------------------------------------------------------------
+  # Address shape: /{intent}-{businessObject}
+  # intent is the first segment up to the first hyphen; object must be the
+  # remaining text. Never split heuristically - the object is an exact registry lookup.
+  # ---------------------------------------------------------------------------
+  dq-address-shape:
+    description: >-
+      Paths carrying business objects must follow /{intent}-{businessObject},
+      lower-kebab only, with no trailing parameters on the address segment.
+    message: "{{description}} - offending path: {{path}}"
+    severity: error
+    given: "$.paths[*]~"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^/[a-z][a-z0-9]*(-[a-z0-9]+)+$"
+
+  # ---------------------------------------------------------------------------
+  # Every write operation must declare which intent and object it carries.
+  # ---------------------------------------------------------------------------
+  dq-intent-declared:
+    description: Write operations must declare x-dq-intent.
+    message: "Missing x-dq-intent on {{path}}"
+    severity: error
+    given: "$.paths.*[post,put,patch]"
+    then:
+      field: x-dq-intent
+      function: defined
+
+  dq-object-declared:
+    description: Write operations must declare x-dq-object.
+    message: "Missing x-dq-object on {{path}}"
+    severity: error
+    given: "$.paths.*[post,put,patch]"
+    then:
+      field: x-dq-object
+      function: defined
+
+  # ---------------------------------------------------------------------------
+  # The violation contract must be declared, so clients can rely on 422 shape.
+  # ---------------------------------------------------------------------------
+  dq-violation-response-declared:
+    description: Write operations must declare the shared 422 DQ violation response.
+    message: "Missing 422 response (DQViolation) on {{path}}"
+    severity: error
+    given: "$.paths.*[post,put,patch].responses"
+    then:
+      field: "422"
+      function: defined
+
+  # ---------------------------------------------------------------------------
+  # [M1] x-dq-intent must equal the intent parsed from the path, and
+  #      x-dq-object must resolve in the registry. Requires `dq-path-intent`,
+  #      `dq-path-object` and `dq-registry-lookup` custom functions.
+  # ---------------------------------------------------------------------------
+  # dq-intent-matches-path:
+  #   description: x-dq-intent must equal the path address intent.
+  #   severity: error
+  #   given: "$.paths.*[post,put,patch]"
+  #   then:
+  #     function: dq-path-intent
+
+  # ---------------------------------------------------------------------------
+  # [M1] Business object payloads must $ref the canonical schema, never restate
+  #      properties. This coarse form flags every write operation; the M1 custom
+  #      function narrows it to operations carrying x-dq-object.
+  # ---------------------------------------------------------------------------
+  # dq-no-inline-object-schema:
+  #   description: Object payload schemas must $ref the canonical registry schema.
+  #   severity: error
+  #   given: "$.paths.*[post,put,patch].requestBody.content[*].schema"
+  #   then:
+  #     field: properties
+  #     function: undefined
+
+  # ---------------------------------------------------------------------------
+  # [M1] Code DQ_L2_DIGEST_HEADER (Delivery Design Pack R-05).
+  # Operations that declare x-dq-object must declare the DQ-Pack-Digest response
+  # header on their success and 422 responses, so the digest a caller sees is
+  # part of the reviewed contract rather than an undocumented side effect.
+  # Requires the `dq-digest-header` custom function.
+  # ---------------------------------------------------------------------------
+  # dq-digest-header-declared:
+  #   description: DQ operations must declare the DQ-Pack-Digest response header.
+  #   severity: error
+  #   given: "$.paths.*[post,put,patch,get]"
+  #   then:
+  #     function: dq-digest-header

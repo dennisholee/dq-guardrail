@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0",
+  "intent": "onboard",
+  "object": "party",
+  "objectVersion": "1.0.0",
+  "deliveryId": "01J9B2M4X8Q7R6S5T4V3W2X1Y0",
+  "producedAt": "2026-10-20T02:15:00Z",
+  "source": {
+    "system": "branch-capture",
+    "run": "nightly-20261020"
+  },
+  "format": {
+    "type": "jsonl",
+    "encoding": "utf-8"
+  },
+  "recordCount": 3,
+  "checksum": {
+    "algorithm": "sha256",
+    "value": "9c538173a554c8ce57ba5c6f84c5b0487243f3e9676dcb3a50f891e32cd3e367"
+  },
+  "retention": "P7Y"
+}

@@ -1,0 +1,19 @@
+{
+  "intent": "change",
+  "object": "contactpoint",
+  "correlationId": "01J8Z6R5X2B9C8D7E6F5G4H3K2",
+  "clockDependent": true,
+  "note": "Changed 25 days ago, inside the 90-day cooling-off period. This verdict depends on the wall clock, so the conformance suite cannot reproduce it.",
+  "payload": {
+    "contactpoint": {
+      "partyId": "PTY-00000001",
+      "contacts": [
+        {
+          "type": "HOME",
+          "address": { "street1": "16 Marina Road", "city": "Lagos", "postalCode": "101241", "country": "NG" }
+        }
+      ]
+    },
+    "lastChange": { "changedAt": "2026-10-01T09:15:00Z" }
+  }
+}

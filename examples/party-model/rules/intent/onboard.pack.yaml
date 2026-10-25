@@ -1,0 +1,139 @@
+apiVersion: dq/v1
+kind: IntentPack
+metadata:
+  name: intent.onboard
+  version: 1.0.0
+  owner: Customer Data Office
+  alias: Onboard customer
+spec:
+  intent: onboard
+
+  appliesTo: [party, partyrelationship, contactpoint]
+
+  profile:
+    schemaUses: request
+    expectPrecondition: true
+    idempotency: required
+
+  rules:
+    - id: SEM-ONB-001
+      assert: "('relationship' in this) && this.relationship.type == 'CUSTOMER'"
+      message: Onboarding must establish the CUSTOMER relationship in the same request
+      severity: CRITICAL
+      dimension: completeness
+      path: $.relationship.type
+
+    - id: SEM-ONB-002
+      assert: "this.contactPoints.exists(cp, cp.contacts.exists(c, c.type == 'CORRESPONDENCE'))"
+      message: Onboarding requires at least one CORRESPONDENCE contact point
+      severity: CRITICAL
+      dimension: completeness
+      path: $.contactPoints
+
+    - id: SEM-ONB-003
+      when: "'individual' in this.party"
+      assert: "!this.party.individual.names.exists(n, n.value.upperAscii() in ['UNKNOWN', 'N/A', 'NA', 'TEST', 'XXX'])"
+      message: A name component may not be a placeholder token
+      severity: MAJOR
+      dimension: validity
+      path: $.party.individual.names
+
+    - id: SEM-ONB-004
+      when: "'organization' in this.party"
+      assert: "!refdata.exists(p, p.name == this.party.organization.name)"
+      message: An organisation with this registered name already exists on the party master
+      severity: CRITICAL
+      dimension: uniqueness
+      needs: [refdata]
+      path: $.party.organization.name
+
+  relax:
+    - rule: SEM-PTY-003
+      layer: intent
+      justification: Sole-trader connected parties captured in branch have no registration number at the point of onboarding; middle office captures it within 30 days.
+      approvedBy: [Head of Customer Data, Money Laundering Reporting Officer]
+      expiresAt: '2027-03-31T00:00:00Z'
+
+  # Intent rules are now executable. Until this existed, none of them had ever run — and one
+  # of them was wrong (SEM-ONB-002 read contactPoints[].type, not contactPoints[].contacts[].type).
+  tests:
+    - rule: SEM-ONB-001
+      expect: pass
+      note: A customer relationship established in the same request
+      input:
+        party: { partyId: PTY-00000001 }
+        relationship: { type: CUSTOMER, lineOfBusiness: RETAIL }
+        contactPoints: []
+
+    - rule: SEM-ONB-001
+      expect: fail
+      note: A connected party alone is not a customer
+      input:
+        party: { partyId: PTY-00000001 }
+        relationship: { type: CONNECTED_PARTY }
+
+    - rule: SEM-ONB-002
+      expect: pass
+      note: One correspondence contact point
+      input:
+        contactPoints:
+          - partyId: PTY-00000001
+            contacts:
+              - { type: CORRESPONDENCE, address: { street1: 14 Marina Road, city: Lagos, postalCode: "101241", country: NG } }
+
+    - rule: SEM-ONB-002
+      expect: fail
+      note: Home addresses only — the bank has nowhere to write
+      input:
+        contactPoints:
+          - partyId: PTY-00000001
+            contacts:
+              - { type: HOME, address: { street1: 14 Marina Road, city: Lagos, postalCode: "101241", country: NG } }
+
+    - rule: SEM-ONB-003
+      expect: pass
+      note: A real given name
+      input:
+        party:
+          partyId: PTY-00000001
+          individual:
+            names:
+              - { type: FIRST, value: Amara }
+              - { type: LAST, value: Okafor }
+
+    - rule: SEM-ONB-003
+      expect: fail
+      note: The branch captured UNKNOWN as a first name
+      input:
+        party:
+          partyId: PTY-00000007
+          individual:
+            names:
+              - { type: FIRST, value: UNKNOWN }
+              - { type: LAST, value: Okafor }
+
+    - rule: SEM-ONB-004
+      expect: pass
+      note: A name the party master has not seen
+      input:
+        party:
+          partyId: PTY-00000005
+          organization:
+            name: Northwind Trading Ltd
+            countryOfIncorporation: GB
+            businessRegistrationNumber: "09876543"
+        refdata:
+          - { name: Other Holdings Ltd }
+
+    - rule: SEM-ONB-004
+      expect: fail
+      note: The organisation already exists on the party master
+      input:
+        party:
+          partyId: PTY-00000009
+          organization:
+            name: Northwind Trading Ltd
+            countryOfIncorporation: GB
+            businessRegistrationNumber: "09876543"
+        refdata:
+          - { name: Northwind Trading Ltd }

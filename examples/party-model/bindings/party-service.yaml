@@ -1,0 +1,48 @@
+apiVersion: dq.example.com/v1
+kind: QualityBinding
+metadata:
+  name: party-service
+  namespace: customer-data
+  labels:
+    domain: party
+    owner: customer-data-platform
+    criticality: P1
+spec:
+  # Pinned by digest, never by tag: a tag is mutable, and a binding that can change under
+  # the cluster is not a control. The digest below is the sha256 of evidence/bundle.yaml,
+  # which is this sample's stand-in for the OCI manifest digest.
+  bundle: registry.example.internal/dq/party-bundle@sha256:1bdb6a58f93c2277b4ed6aa72d4ecdbddc921eb748159346eac78c73dfdc0a48
+
+  # Required because mode is ENFORCE. First deployment, so the last known good bundle is
+  # the current one — degenerate but valid, and the validator says so rather than pretending
+  # a history exists that this sample cannot show.
+  fallbackDigest: sha256:29e05555e2b99081120889dd4520b02814a1a69b07a08b61b8b577f1bd152681
+
+  mode: ENFORCE
+
+  # fail-closed: if the bundle cannot be verified, refuse the write. A customer record that
+  # enters the master unvalidated is more expensive than one that is rejected and retried.
+  onBundleFailure: fail-closed
+
+  retention: P3Y
+
+  channels:
+    http:
+      adapter: ext-proc
+      paths:
+        - /onboard-party
+        - /change-contactpoint
+      onViolation:
+        CRITICAL: reject-422
+        MAJOR: reject-422
+        MINOR: log
+
+  # One suppression, to show the mechanism and its constraints: it names a ticket, an
+  # approver, a reason and an expiry inside the 30-day window. A suppression with no ticket
+  # is how a control quietly stops being a control.
+  suppress:
+    - rule: SYN-CPT-001
+      until: '2026-11-07T00:00:00Z'
+      ticket: CHG-44121
+      approver: Head of Customer Data
+      reason: Legacy joint-account extract emits two HOME addresses until the source system is retired in November.

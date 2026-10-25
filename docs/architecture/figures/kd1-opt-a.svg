@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 250" width="740" height="250" role="img" aria-label="Option A: Envoy WASM filter in-process">
+  <defs>
+    <marker id="mA" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+      <path d="M0,0 L9,3.5 L0,7 z" fill="#5B6B7F"/>
+    </marker>
+  </defs>
+  <rect width="740" height="250" fill="#F7F9FC"/>
+  <text x="20" y="26" font-family="Segoe UI,Inter,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#101828">Option A — Envoy WASM filter (in-process, zero app change)</text>
+
+  <rect x="20" y="96" width="112" height="56" rx="6" fill="#FFFFFF" stroke="#5B6B7F" stroke-width="1.5"/>
+  <text x="76" y="120" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#1D2939">Client</text>
+  <text x="76" y="137" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#475467">Z0</text>
+
+  <rect x="160" y="58" width="264" height="136" rx="8" fill="#EEF7F5" stroke="#0F7B6C" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="292" y="76" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#0F7B6C">Envoy / istio-proxy — same pod, same process</text>
+
+  <rect x="176" y="86" width="232" height="34" rx="5" fill="#FFFFFF" stroke="#5B6B7F" stroke-width="1.2"/>
+  <text x="292" y="107" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#1D2939">HTTP filter chain</text>
+
+  <rect x="176" y="140" width="232" height="42" rx="5" fill="#DCF0EA" stroke="#0F7B6C" stroke-width="2"/>
+  <text x="292" y="158" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#0B5A4F">WASM · DQ engine (C6)</text>
+  <text x="292" y="173" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#0B5A4F">schema → CEL → verdict</text>
+
+  <rect x="456" y="96" width="150" height="56" rx="6" fill="#FFFFFF" stroke="#5B6B7F" stroke-width="1.5"/>
+  <text x="531" y="120" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#1D2939">Service pod</text>
+  <text x="531" y="136" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#475467">code unchanged</text>
+
+  <rect x="456" y="26" width="150" height="44" rx="6" fill="#EEF4FB" stroke="#1F4E79" stroke-width="1.2" stroke-dasharray="5 3"/>
+  <text x="531" y="44" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#1F4E79">OCI dq-bundle</text>
+  <text x="531" y="59" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#1F4E79">pinned digest D1</text>
+
+  <line x1="132" y1="124" x2="158" y2="124" stroke="#5B6B7F" stroke-width="1.5" marker-end="url(#mA)"/>
+  <line x1="292" y1="120" x2="292" y2="138" stroke="#5B6B7F" stroke-width="1.5" marker-end="url(#mA)"/>
+  <line x1="408" y1="161" x2="454" y2="130" stroke="#5B6B7F" stroke-width="1.5" marker-end="url(#mA)"/>
+  <line x1="518" y1="70" x2="360" y2="88" stroke="#1F4E79" stroke-width="1.2" stroke-dasharray="5 3" marker-end="url(#mA)"/>
+
+  <text x="620" y="140" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#B42318">422 problem+json</text>
+  <text x="20" y="228" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#475467">0 extra hops · ~50–150 µs · body buffered (maxRequestBytes must cover p99 payload) · no new SPOF</text>
+</svg>

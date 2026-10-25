@@ -1,0 +1,56 @@
+@startuml fig4-deployment-view
+' Fig 4 — Deployment view. Single cluster shown; the DR cluster differs only by OCI region and bindings.
+title Fig 4 — Deployment view (Kubernetes)
+
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+skinparam node {
+  BorderStyle solid
+}
+
+node "Outside cluster · Z1" {
+  node "Git\ncatalog/ · rules/ · bindings/" as GIT
+  node "CI runners\nC3 + C4" as CI
+  node "OCI registry (replicated)\nC5 · cosign · SBOM" as OCI
+}
+
+node "Kubernetes cluster · prod (multi-AZ)" {
+  node "ns: envoy-gateway-system" {
+    component "Envoy Gateway\nC7a WASM filter" as EG
+  }
+  node "ns: app-customer (waypoint mode)" {
+    component "customer-service pod\napp code unchanged" as SVC
+    component "Envoy (per-pod)\nC7a WASM" as PX
+  }
+  node "ns: app-billing (no mesh)" {
+    component "billing pod\nC7c library adapter" as BIL
+  }
+  node "ns: dq-guardrail" {
+    component "QualityBinding CRD\nC10 (+ optional operator)" as CRD
+  }
+  node "ns: kafka (Strimzi)" {
+    component "topics · C8 stream gate" as KFK
+  }
+  node "ns: batch (Argo Workflows)" {
+    component "file gate job C9" as GATE
+    database "PVC / object store" as STORE
+  }
+  node "ns: observability" {
+    component "OTel Collector C11" as OTC
+    component "Prometheus · Tempo" as OBS
+  }
+}
+
+GIT --> CI
+CI --> OCI
+OCI ..> EG : pull + verify
+OCI ..> PX : pull + verify
+OCI ..> KFK : pull + verify
+OCI ..> GATE : pull + verify
+EG --> PX
+PX --> SVC
+CRD ..> EG : digest + mode
+CRD ..> BIL : digest + mode
+GATE --> STORE
+OTC --> OBS
+@enduml

@@ -1,0 +1,15 @@
+apiVersion: dq/v1
+kind: ValueSet
+valueSet: line-of-business
+version: 1.0.0
+title: Line of business
+owner: Finance Data Office
+source:
+  authority: Management Reporting Taxonomy 2026
+updatedOn: '2026-09-15'
+caseSensitive: true
+values:
+  - { code: RETAIL, label: Retail banking }
+  - { code: PRIVATE, label: Private banking }
+  - { code: SME, label: Small and medium enterprise }
+  - { code: CORPORATE, label: Corporate and institutional }

@@ -1,0 +1,24 @@
+{
+  "type": "https://registry.internal/problems/data-quality-violation",
+  "title": "Data quality violation",
+  "status": 422,
+  "detail": "1 violation",
+  "instance": "/change-contactpoint",
+  "correlationId": "01J8Z6R5X2B9C8D7E6F5G4H3K2",
+  "packDigest": "sha256:12a39eaef807abbad00458a6fec3bb61b31bb9fe2a8d3bb3df5a0d0d143fec5c",
+  "violations": [
+    {
+      "ruleId": "SEM-CHG-003",
+      "severity": "MAJOR",
+      "path": "$.lastChange.changedAt",
+      "dimension": "consistency",
+      "intent": "change",
+      "object": "contactpoint",
+      "objectVersion": "1.0.0",
+      "packDigest": "sha256:12a39eaef807abbad00458a6fec3bb61b31bb9fe2a8d3bb3df5a0d0d143fec5c",
+      "correlationId": "01J8Z6R5X2B9C8D7E6F5G4H3K2",
+      "message": "An address may not be changed again within 90 days of the previous change",
+      "retryable": false
+    }
+  ]
+}

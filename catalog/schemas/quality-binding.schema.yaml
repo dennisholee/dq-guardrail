@@ -1,0 +1,96 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://registry.internal/dq/schemas/quality-binding.schema.yaml
+title: QualityBinding
+description: >-
+  Validates a binding file as committed to Git. This is the file-level projection of the
+  CRD in Delivery Design Pack §2.4; the CRD is an OpenAPI v3.0 subset and cannot express
+  everything below, so admission uses CEL for the rules this schema states structurally.
+  Two constraints cannot live here and are enforced by dqctl lint instead: the 30-day
+  suppression window (needs a clock) and the rule-not-in-plan check (needs the compiled
+  bundle).
+type: object
+additionalProperties: false
+required: [apiVersion, kind, metadata, spec]
+properties:
+  apiVersion: { const: dq.example.com/v1 }
+  kind: { const: QualityBinding }
+  metadata:
+    type: object
+    additionalProperties: false
+    required: [name, namespace]
+    properties:
+      name: { type: string, pattern: '^[a-z][a-z0-9-]*$', maxLength: 63 }
+      namespace: { type: string, pattern: '^[a-z][a-z0-9-]*$', maxLength: 63 }
+      labels: { type: object }
+  spec:
+    type: object
+    additionalProperties: false
+    required: [bundle, mode]
+    properties:
+      bundle:
+        type: string
+        pattern: '^[^@\s]+@sha256:[a-f0-9]{64}$'
+        description: OCI reference; canonical form is scheme-less, digest never a tag.
+      fallbackDigest: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+      mode: { enum: [OFF, SHADOW, WARN, ENFORCE] }
+      onBundleFailure: { enum: [fail-open, fail-closed], default: fail-open }
+      retention: { type: string, pattern: '^P[0-9]+(D|M|Y)$' }
+      suppress:
+        type: array
+        maxItems: 20
+        items:
+          type: object
+          additionalProperties: false
+          required: [rule, until, ticket, approver, reason]
+          properties:
+            rule: { type: string, pattern: '^(SYN|SEM|STA)-[A-Z]{3}-[0-9]{3}$' }
+            until: { type: string, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' }
+            ticket: { type: string, minLength: 3 }
+            approver: { type: string, minLength: 3 }
+            reason: { type: string, minLength: 10, maxLength: 200 }
+      channels:
+        type: object
+        additionalProperties: false
+        properties:
+          http:
+            type: object
+            additionalProperties: false
+            required: [adapter, paths]
+            properties:
+              adapter: { enum: [wasm, ext-proc, library] }
+              paths:
+                type: array
+                minItems: 1
+                items: { type: string, pattern: '^/[a-z][a-z0-9]*(-[a-z0-9]+)+$' }
+              onViolation:
+                type: object
+                additionalProperties: false
+                properties:
+                  CRITICAL: { enum: [reject-422, log] }
+                  MAJOR: { enum: [reject-422, log] }
+                  MINOR: { enum: [reject-422, log] }
+          kafka:
+            type: object
+            additionalProperties: false
+            required: [adapter]
+            properties:
+              adapter: { enum: [stream-gate, interceptor] }
+              onViolation:
+                type: object
+                additionalProperties: false
+                properties:
+                  CRITICAL: { enum: [dlq, annotate] }
+                  MAJOR: { enum: [dlq, annotate] }
+                  MINOR: { enum: [dlq, annotate] }
+          file:
+            type: object
+            additionalProperties: false
+            required: [adapter, policy]
+            properties:
+              adapter: { enum: [gate-job] }
+              policy: { enum: [reject-rows, fail-file] }
+    allOf:
+      - if: { properties: { mode: { const: ENFORCE } }, required: [mode] }
+        then: { required: [fallbackDigest] }
+      - if: { properties: { mode: { enum: [SHADOW, WARN, ENFORCE] } }, required: [mode] }
+        then: { required: [channels] }

@@ -1,0 +1,13 @@
+apiVersion: dq/v1
+kind: ValueSet
+valueSet: relation-type
+version: 1.0.0
+title: Party-to-bank relationship type
+owner: Customer Data Office
+source:
+  authority: Customer Data Office — Party Data Standard v3
+updatedOn: '2026-09-15'
+caseSensitive: true
+values:
+  - { code: CUSTOMER, label: Customer }
+  - { code: CONNECTED_PARTY, label: Connected party }

@@ -1,0 +1,35 @@
+@startuml fig8-file
+' Fig 8 — File processing gate job.
+title Fig 8 — File processing gate job
+
+autonumber
+skinparam defaultFontName "Segoe UI"
+
+actor "Upstream extract" as UP
+participant "Object store / PVC" as FS
+participant "Argo Workflows controller" as ARG
+participant "Gate job C9" as GJ
+participant "Engine C6\nstreaming io.Reader" as EN
+participant "Downstream batch" as DOWN
+database "Metrics C11" as M
+
+UP -> FS : drop create-customer-20261024.jsonl\nplus manifest (intent, object, version)
+FS -> ARG : manifest arrival event
+ARG -> GJ : start gate job
+GJ -> EN : stream records (constant memory)
+
+loop every record
+  EN -> EN : tier 0 + tier 1 (+ tier 2 delta window)
+end
+
+EN -> M : dq.violations{channel=file}
+
+alt policy reject rows
+  GJ -> FS : write accepted/*.jsonl, rejects.csv, manifest.json
+  GJ --> DOWN : write _SUCCESS
+  DOWN -> FS : read accepted/ only
+else policy fail file
+  GJ -> FS : write quarantine/file plus reasons
+  GJ --> DOWN : no _SUCCESS, downstream does not start
+end
+@enduml

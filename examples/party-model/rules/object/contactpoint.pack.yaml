@@ -1,0 +1,160 @@
+apiVersion: dq/v1
+kind: QualityPack
+metadata:
+  name: object.contactpoint
+  version: 1.0.0
+  owner: Customer Data Office
+spec:
+  object:
+    name: contactpoint
+    schemaVersion: 1.0.0
+
+  requires:
+    - valueset.contact-point-type
+    - valueset.country-code-iso3166-1
+
+  syntax:
+    fromSchema:
+      ref: https://registry.internal/dq/schemas/contactpoint/1.0.0
+      assertFormat: true
+    extra:
+      - id: SYN-CPT-001
+        assert: "!this.contacts.exists(c1, this.contacts.filter(c2, c2.type == c1.type).size() > 1)"
+        message: A party may hold at most one contact point of each type
+        severity: MINOR
+        dimension: uniqueness
+        path: $.contacts
+
+  semantic:
+    - id: SEM-CPT-001
+      assert: "!this.contacts.exists(c, (c.address.country == 'GB' && !c.address.postalCode.matches('^[A-Z]{1,2}[0-9][0-9A-Z]? ?[0-9][A-Z]{2}$')) || (c.address.country == 'NG' && !c.address.postalCode.matches('^[0-9]{6}$')) || (c.address.country == 'US' && !c.address.postalCode.matches('^[0-9]{5}(-[0-9]{4})?$')))"
+      message: The postal code must match the grammar of the address country
+      severity: CRITICAL
+      dimension: validity
+      path: $.contacts
+
+    - id: SEM-CPT-002
+      assert: "!this.contacts.exists(c, ((c.address.country == 'US' || c.address.country == 'CA') && !('administrativeArea' in c.address)))"
+      message: United States and Canadian addresses require an administrative area
+      severity: MAJOR
+      dimension: completeness
+      path: $.contacts
+
+    - id: SEM-CPT-003
+      when: "this.contacts.exists(c, c.address.country == 'GB')"
+      assert: "!this.contacts.exists(c, c.address.country == 'GB' && refdata.exists(r, r.postalCode == c.address.postalCode && r.locality.upperAscii() != c.address.city.upperAscii()))"
+      message: The city does not match the locality recorded for that postal code
+      severity: MAJOR
+      dimension: accuracy
+      needs: [refdata]
+      path: $.contacts
+
+    - id: SEM-CPT-004
+      assert: "!this.contacts.exists(c1, c1.type == 'HOME' && this.contacts.exists(c2, c2.type == 'CORRESPONDENCE' && c2.address.postalCode == c1.address.postalCode && c2.address.city != c1.address.city))"
+      message: A HOME and CORRESPONDENCE address sharing a postal code must share a city
+      severity: MINOR
+      dimension: consistency
+      path: $.contacts
+
+  tests:
+    - rule: SYN-CPT-001
+      expect: pass
+      note: One home and one correspondence address
+      input:
+        partyId: PTY-00000001
+        contacts:
+          - type: HOME
+            address: { street1: 14 Marina Road, city: Lagos, postalCode: "101241", country: NG }
+          - type: CORRESPONDENCE
+            address: { street1: 14 Marina Road, city: Lagos, postalCode: "101241", country: NG }
+
+    - rule: SYN-CPT-001
+      expect: fail
+      note: Two HOME addresses — which one is the home address is then undefined
+      input:
+        partyId: PTY-00000001
+        contacts:
+          - type: HOME
+            address: { street1: 14 Marina Road, city: Lagos, postalCode: "101241", country: NG }
+          - type: HOME
+            address: { street1: 2 Broad Street, city: Lagos, postalCode: "101241", country: NG }
+
+    - rule: SEM-CPT-001
+      expect: pass
+      note: London address, GB grammar
+      input:
+        partyId: PTY-00000005
+        contacts:
+          - type: CORRESPONDENCE
+            address: { street1: 30 St Mary Axe, city: London, postalCode: "EC3A 8BF", country: GB }
+
+    - rule: SEM-CPT-001
+      expect: fail
+      note: The deliberate failure — a London postcode on a Lagos address
+      input:
+        partyId: PTY-00000006
+        contacts:
+          - type: HOME
+            address: { street1: 14 Marina Road, city: Lagos, postalCode: "SW1A 1AA", country: NG }
+
+    - rule: SEM-CPT-002
+      expect: pass
+      note: New York address with a state
+      input:
+        partyId: PTY-00000007
+        contacts:
+          - type: BUSINESS
+            address: { street1: 350 Fifth Avenue, city: New York, administrativeArea: NY, postalCode: "10118", country: US }
+
+    - rule: SEM-CPT-002
+      expect: fail
+      note: US address with no state — undeliverable, and fails tax reporting
+      input:
+        partyId: PTY-00000008
+        contacts:
+          - type: BUSINESS
+            address: { street1: 350 Fifth Avenue, city: New York, postalCode: "10118", country: US }
+
+    - rule: SEM-CPT-003
+      expect: pass
+      note: EC3A 8BF is in the City of London
+      input:
+        partyId: PTY-00000005
+        contacts:
+          - type: CORRESPONDENCE
+            address: { street1: 30 St Mary Axe, city: London, postalCode: "EC3A 8BF", country: GB }
+        refdata:
+          - { postalCode: "EC3A 8BF", locality: London }
+
+    - rule: SEM-CPT-003
+      expect: fail
+      note: The postal file puts EC3A 8BF in London; the record says Manchester
+      input:
+        partyId: PTY-00000005
+        contacts:
+          - type: CORRESPONDENCE
+            address: { street1: 30 St Mary Axe, city: Manchester, postalCode: "EC3A 8BF", country: GB }
+        refdata:
+          - { postalCode: "EC3A 8BF", locality: London }
+
+    - rule: SEM-CPT-004
+      expect: pass
+      note: Home and correspondence at the same place, spelled the same way
+      input:
+        partyId: PTY-00000001
+        contacts:
+          - type: HOME
+            address: { street1: 14 Marina Road, city: Lagos, postalCode: "101241", country: NG }
+          - type: CORRESPONDENCE
+            address: { street1: 14 Marina Road, city: Lagos, postalCode: "101241", country: NG }
+
+    - rule: SEM-CPT-004
+      expect: fail
+      note: One postcode, two city spellings — the correspondence address will not match a postal lookup
+      input:
+        partyId: PTY-00000001
+        contacts:
+          - type: HOME
+            address: { street1: 14 Marina Road, city: Lagos, postalCode: "101241", country: NG }
+          - type: CORRESPONDENCE
+            address: { street1: 14 Marina Road, city: Lagos Island, postalCode: "101241", country: NG }

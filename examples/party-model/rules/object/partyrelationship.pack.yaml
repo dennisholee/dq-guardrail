@@ -1,0 +1,160 @@
+apiVersion: dq/v1
+kind: QualityPack
+metadata:
+  name: object.partyrelationship
+  version: 1.0.0
+  owner: Customer Data Office
+spec:
+  object:
+    name: partyrelationship
+    schemaVersion: 1.0.0
+
+  requires:
+    - valueset.relation-type
+    - valueset.line-of-business
+
+  syntax:
+    fromSchema:
+      ref: https://registry.internal/dq/schemas/partyrelationship/1.0.0
+      assertFormat: true
+
+  semantic:
+    - id: SEM-PTR-001
+      assert: "this.type != 'CUSTOMER' || ('lineOfBusiness' in this)"
+      message: A CUSTOMER relationship must be booked to a line of business
+      severity: CRITICAL
+      dimension: completeness
+      path: $.lineOfBusiness
+
+    - id: SEM-PTR-002
+      assert: "this.type != 'CONNECTED_PARTY' || !('lineOfBusiness' in this)"
+      message: A CONNECTED_PARTY inherits the customer's line of business and must not state its own
+      severity: MAJOR
+      dimension: consistency
+      path: $.lineOfBusiness
+
+    - id: SEM-PTR-003
+      assert: "refdata.exists(p, p.partyId == this.partyId)"
+      message: The party reference does not resolve to a known party
+      severity: CRITICAL
+      dimension: validity
+      needs: [refdata]
+      path: $.partyId
+
+    - id: SEM-PTR-004
+      assert: "!(this.type == 'CUSTOMER' && refdata.exists(r, r.partyId == this.partyId && r.partyReferenceId != this.partyReferenceId && r.type == 'CUSTOMER'))"
+      message: The party already holds a CUSTOMER relationship under another reference
+      severity: CRITICAL
+      dimension: uniqueness
+      needs: [refdata]
+      path: $.partyReferenceId
+
+  stateful:
+    - id: STA-PTR-001
+      when: "'prior' in this"
+      assert: "this.prior.type != 'CUSTOMER' || this.type == 'CUSTOMER'"
+      message: A CUSTOMER relationship may never be demoted to CONNECTED_PARTY
+      severity: MAJOR
+      dimension: consistency
+      needs: [history]
+      path: $.type
+
+  tests:
+    - rule: SEM-PTR-001
+      expect: pass
+      note: Retail customer
+      input:
+        partyReferenceId: CIF-000123456
+        partyId: PTY-00000001
+        type: CUSTOMER
+        lineOfBusiness: RETAIL
+
+    - rule: SEM-PTR-001
+      expect: fail
+      note: Customer booked with no line of business — cannot be reported against
+      input:
+        partyReferenceId: CIF-000123457
+        partyId: PTY-00000002
+        type: CUSTOMER
+
+    - rule: SEM-PTR-002
+      expect: pass
+      note: Connected party with no line of business of its own
+      input:
+        partyReferenceId: CIF-000123458
+        partyId: PTY-00000003
+        type: CONNECTED_PARTY
+
+    - rule: SEM-PTR-002
+      expect: fail
+      note: Connected party asserting a line of business contradicts the customer's
+      input:
+        partyReferenceId: CIF-000123459
+        partyId: PTY-00000004
+        type: CONNECTED_PARTY
+        lineOfBusiness: PRIVATE
+
+    - rule: STA-PTR-001
+      expect: pass
+      note: Still a customer
+      input:
+        partyReferenceId: CIF-000123456
+        partyId: PTY-00000001
+        type: CUSTOMER
+        lineOfBusiness: RETAIL
+        prior:
+          type: CUSTOMER
+
+    - rule: STA-PTR-001
+      expect: fail
+      note: Demotion — writes off a customer relationship without a closure event
+      input:
+        partyReferenceId: CIF-000123456
+        partyId: PTY-00000001
+        type: CONNECTED_PARTY
+        prior:
+          type: CUSTOMER
+
+    - rule: SEM-PTR-003
+      expect: pass
+      note: The party exists on the master
+      input:
+        partyReferenceId: CIF-000123456
+        partyId: PTY-00000001
+        type: CUSTOMER
+        lineOfBusiness: RETAIL
+        refdata:
+          - { partyId: PTY-00000001 }
+
+    - rule: SEM-PTR-003
+      expect: fail
+      note: The relationship points at a party the master has never seen
+      input:
+        partyReferenceId: CIF-000123999
+        partyId: PTY-00000999
+        type: CUSTOMER
+        lineOfBusiness: RETAIL
+        refdata:
+          - { partyId: PTY-00000001 }
+
+    - rule: SEM-PTR-004
+      expect: pass
+      note: The only CUSTOMER relationship for this party
+      input:
+        partyReferenceId: CIF-000123456
+        partyId: PTY-00000001
+        type: CUSTOMER
+        lineOfBusiness: RETAIL
+        refdata:
+          - { partyId: PTY-00000001, partyReferenceId: CIF-000123456, type: CUSTOMER }
+
+    - rule: SEM-PTR-004
+      expect: fail
+      note: A second customer reference for a party that already has one — a duplicate CIF
+      input:
+        partyReferenceId: CIF-000123999
+        partyId: PTY-00000001
+        type: CUSTOMER
+        lineOfBusiness: RETAIL
+        refdata:
+          - { partyId: PTY-00000001, partyReferenceId: CIF-000123456, type: CUSTOMER }

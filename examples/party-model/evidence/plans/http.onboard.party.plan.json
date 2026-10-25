@@ -1,0 +1,117 @@
+{
+  "planFormat": 1,
+  "channel": "http",
+  "intent": "onboard",
+  "object": "party",
+  "objectVersion": "1.0.0",
+  "schemaMatcher": {
+    "ref": "https://registry.internal/dq/schemas/party/1.0.0",
+    "digest": "sha256:378b9efa2b8b2267a19de29d97126c8bb451971ff9c0aaf370b54060e8698b89"
+  },
+  "providers": [
+    "valueset",
+    "refdata",
+    "history"
+  ],
+  "rules": [
+    {
+      "id": "SYN-PTY-001",
+      "tier": 0,
+      "severity": "MINOR",
+      "dimension": "uniqueness",
+      "assert": "!('individual' in this) || !this.individual.names.exists(n1, this.individual.names.filter(n2, n2.type == n1.type).size() > 1)",
+      "origin": "object"
+    },
+    {
+      "id": "SEM-ONB-001",
+      "tier": 1,
+      "severity": "CRITICAL",
+      "dimension": "completeness",
+      "assert": "('relationship' in this) && this.relationship.type == 'CUSTOMER'",
+      "origin": "intent"
+    },
+    {
+      "id": "SEM-ONB-002",
+      "tier": 1,
+      "severity": "CRITICAL",
+      "dimension": "completeness",
+      "assert": "this.contactPoints.exists(cp, cp.contacts.exists(c, c.type == 'CORRESPONDENCE'))",
+      "origin": "intent"
+    },
+    {
+      "id": "SEM-ONB-003",
+      "tier": 1,
+      "severity": "MAJOR",
+      "dimension": "validity",
+      "when": "'individual' in this.party",
+      "assert": "!this.party.individual.names.exists(n, n.value.upperAscii() in ['UNKNOWN', 'N/A', 'NA', 'TEST', 'XXX'])",
+      "origin": "intent"
+    },
+    {
+      "id": "SEM-ONB-004",
+      "tier": 1,
+      "severity": "CRITICAL",
+      "dimension": "uniqueness",
+      "when": "'organization' in this.party",
+      "assert": "!refdata.exists(p, p.name == this.party.organization.name)",
+      "needs": [
+        "refdata"
+      ],
+      "origin": "intent"
+    },
+    {
+      "id": "SEM-PTY-001",
+      "tier": 1,
+      "severity": "CRITICAL",
+      "dimension": "validity",
+      "assert": "('individual' in this) != ('organization' in this)",
+      "origin": "object"
+    },
+    {
+      "id": "SEM-PTY-002",
+      "tier": 1,
+      "severity": "CRITICAL",
+      "dimension": "completeness",
+      "assert": "!('individual' in this) || (this.individual.names.exists(n, n.type == 'FIRST') && this.individual.names.exists(n, n.type == 'LAST'))",
+      "origin": "object"
+    },
+    {
+      "id": "SEM-PTY-003",
+      "tier": 1,
+      "severity": "CRITICAL",
+      "dimension": "completeness",
+      "assert": "!('organization' in this) || ('businessRegistrationNumber' in this.organization)",
+      "origin": "object"
+    },
+    {
+      "id": "SEM-PTY-004",
+      "tier": 1,
+      "severity": "MAJOR",
+      "dimension": "accuracy",
+      "when": "'organization' in this && 'businessRegistrationNumber' in this.organization",
+      "assert": "!refdata.exists(r, r.registrationNumber == this.organization.businessRegistrationNumber && r.name != this.organization.name)",
+      "needs": [
+        "refdata"
+      ],
+      "origin": "object"
+    },
+    {
+      "id": "STA-PTY-001",
+      "tier": 2,
+      "severity": "CRITICAL",
+      "dimension": "consistency",
+      "when": "'prior' in this",
+      "assert": "this.prior.partyId == this.partyId",
+      "needs": [
+        "history"
+      ],
+      "origin": "object"
+    }
+  ],
+  "relax": [
+    {
+      "rule": "SEM-PTY-003",
+      "expiresAt": "2027-03-31T00:00:00Z"
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://registry.internal/dq/schemas/object-contract.profile.schema.yaml
+title: Object contract profile
+description: >-
+  Validates a canonical business-object contract — a schema for schemas. A contract
+  may use only the bounded keyword vocabulary below, because L3 compares contracts
+  through a normalised constraint IR: a keyword outside this list would be silently
+  ignored by that comparison, so it is rejected here instead. Combinators
+  (allOf/anyOf/oneOf/not) are deliberately excluded: "exactly one of" is expressed
+  as a tier-1 semantic rule, which gives a better violation message than a
+  structural oneOf rejection.
+type: object
+additionalProperties: false
+required: [$schema, $id, title, type, additionalProperties, required, properties]
+properties:
+  $schema: { const: "https://json-schema.org/draft/2020-12/schema" }
+  $id:
+    type: string
+    pattern: '^https://registry\.internal/dq/schemas/[a-z][a-z0-9-]*/[0-9]+\.[0-9]+\.[0-9]+$'
+  title: { type: string, minLength: 1, maxLength: 80 }
+  description: { type: string, maxLength: 2000 }
+  type: { const: object }
+  additionalProperties: { const: false }
+  required:
+    type: array
+    minItems: 1
+    uniqueItems: true
+    items: { type: string, pattern: '^[a-z][a-zA-Z0-9]*$' }
+  properties:
+    type: object
+    minProperties: 1
+    propertyNames: { pattern: '^[a-z][a-zA-Z0-9]*$' }
+    additionalProperties: { $ref: '#/$defs/field' }
+  $defs:
+    type: object
+    additionalProperties: { $ref: '#/$defs/field' }
+$defs:
+  field:
+    type: object
+    additionalProperties: false
+    properties:
+      type: { $ref: '#/$defs/typeRef' }
+      format: { type: string, maxLength: 32 }
+      pattern: { type: string, maxLength: 512 }
+      enum: { type: array, minItems: 1, uniqueItems: true }
+      const: {}
+      minimum: { type: number }
+      maximum: { type: number }
+      exclusiveMinimum: { type: number }
+      exclusiveMaximum: { type: number }
+      minLength: { type: integer, minimum: 0 }
+      maxLength: { type: integer, minimum: 1, maximum: 4096 }
+      minItems: { type: integer, minimum: 0 }
+      maxItems: { type: integer, minimum: 1 }
+      uniqueItems: { type: boolean }
+      items: { $ref: '#/$defs/field' }
+      properties:
+        type: object
+        minProperties: 1
+        propertyNames: { pattern: '^[a-z][a-zA-Z0-9]*$' }
+        additionalProperties: { $ref: '#/$defs/field' }
+      required:
+        type: array
+        minItems: 1
+        uniqueItems: true
+        items: { type: string, pattern: '^[a-z][a-zA-Z0-9]*$' }
+      additionalProperties: { type: boolean }
+      $ref:
+        type: string
+        description: >-
+          A catalogue URI — https://registry.internal/dq/schemas/<object>/<x.y.z> or
+          .../valuesets/<name>, both expanded by dqctl before evaluation — or an
+          internal definition, #/$defs/<name>, for a shape that is not itself a
+          business object and therefore has no address key.
+        pattern: '^(https://registry\.internal/dq/(schemas|valuesets)/[a-z][a-zA-Z0-9/._-]*|#/\$defs/[a-z][a-zA-Z0-9]*)$'
+      title: { type: string, maxLength: 80 }
+      description: { type: string, maxLength: 500 }
+      x-dq-sensitive: { type: boolean }
+      x-dq-unvalidated: { type: string, minLength: 10 }
+  typeRef:
+    oneOf:
+      - enum: [object, array, string, number, integer, boolean, "null"]
+      - type: array
+        minItems: 2
+        maxItems: 2
+        uniqueItems: true
+        items: { enum: [object, array, string, number, integer, boolean, "null"] }

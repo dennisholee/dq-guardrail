@@ -1,0 +1,49 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://registry.internal/dq/schemas/object-metadata.schema.yaml
+title: Object metadata
+description: >-
+  The file a steward maintains alongside a canonical object contract. Carries what a
+  JSON Schema cannot express about an object: who owns it, how sensitive it is, how
+  long it is retained, which intents may address it, and the quality thresholds it
+  is held to. Note that `object` deliberately excludes hyphens: the address key
+  splits on the first hyphen, so a hyphenated object name would be ambiguous.
+type: object
+additionalProperties: false
+required: [object, version, owner, steward, criticality, sensitivity, allowedIntents, thresholds]
+properties:
+  object: { type: string, pattern: '^[a-z][a-z0-9]*$' }
+  version:
+    type: string
+    pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+  owner: { type: string, minLength: 2 }
+  steward:
+    type: object
+    additionalProperties: false
+    required: [name, email]
+    properties:
+      name: { type: string, minLength: 2 }
+      email: { type: string, minLength: 5 }
+  criticality: { enum: [P1, P2, P3] }
+  sensitivity: { enum: [PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED] }
+  retention:
+    type: string
+    pattern: '^P[0-9]+(D|M|Y)$'
+    description: ISO 8601 duration. M means months; minutes are not permitted.
+  allowedIntents:
+    type: array
+    minItems: 1
+    uniqueItems: true
+    items: { type: string, pattern: '^[a-z][a-z0-9]*$' }
+  eventTimeField: { type: string, pattern: '^[a-z][a-zA-Z0-9]*$' }
+  thresholds:
+    type: object
+    additionalProperties: false
+    properties:
+      completeness: { type: number, minimum: 0, maximum: 100 }
+      validity: { type: number, minimum: 0, maximum: 100 }
+      accuracy: { type: number, minimum: 0, maximum: 100 }
+      consistency: { type: number, minimum: 0, maximum: 100 }
+      uniqueness: { type: number, minimum: 0, maximum: 100 }
+      timeliness: { type: number, minimum: 0, maximum: 100 }
+dependentRequired:
+  timeliness: [eventTimeField]

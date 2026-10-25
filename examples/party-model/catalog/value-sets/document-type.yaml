@@ -1,0 +1,15 @@
+apiVersion: dq/v1
+kind: ValueSet
+valueSet: document-type
+version: 1.0.0
+title: Identity document type
+owner: Financial Crime Compliance
+source:
+  authority: FCA SYSC / internal KYC standard
+updatedOn: '2026-09-15'
+caseSensitive: true
+values:
+  - { code: PASSPORT, label: Passport }
+  - { code: NATIONAL_ID, label: National identity card }
+  - { code: DRIVING_LICENCE, label: Driving licence }
+  - { code: RESIDENCE_PERMIT, label: Residence permit }

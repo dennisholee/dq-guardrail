@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://registry.internal/dq/schemas/party/1.0.0",
+  "title": "Party",
+  "description": "A party the bank knows, individual or organisation. Exactly one of `individual` and `organization` is present; that is a tier-1 rule (SEM-PTY-001), not a oneOf, because a violation naming the missing branch is more useful to a caller than a structural rejection.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["partyId"],
+  "properties": {
+    "partyId": {
+      "type": "string",
+      "pattern": "^PTY-[0-9]{8}$",
+      "description": "Assigned once by the party master and immutable thereafter (STA-PTY-001)."
+    },
+    "individual": { "$ref": "#/$defs/individual" },
+    "organization": { "$ref": "#/$defs/organization" }
+  },
+  "$defs": {
+    "individual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["names"],
+      "properties": {
+        "names": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/nameComponent" }
+        },
+        "documents": {
+          "type": "array",
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/document" }
+        }
+      }
+    },
+    "nameComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": { "$ref": "https://registry.internal/dq/valuesets/name-component-type" },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Script of origin is preserved; no transliteration at capture."
+        }
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "issuingCountry", "value"],
+      "properties": {
+        "type": { "$ref": "https://registry.internal/dq/valuesets/document-type" },
+        "issuingCountry": { "$ref": "https://registry.internal/dq/valuesets/country-code-iso3166-1" },
+        "value": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 64,
+          "x-dq-sensitive": true,
+          "description": "Never logged, never returned in a violation context; redacted to the last four characters."
+        }
+      }
+    },
+    "organization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "countryOfIncorporation"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 200
+        },
+        "countryOfIncorporation": { "$ref": "https://registry.internal/dq/valuesets/country-code-iso3166-1" },
+        "businessRegistrationNumber": {
+          "type": "string",
+          "pattern": "^[A-Z0-9][A-Z0-9-]{5,19}$",
+          "description": "Absent at onboarding for some sole traders; waived by the onboard intent's relax block, not by omission."
+        }
+      }
+    }
+  }
+}

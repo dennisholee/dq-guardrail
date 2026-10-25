@@ -1,0 +1,16 @@
+object: contactpoint
+version: 1.0.0
+owner: Customer Data Office
+steward:
+  name: Priya Raman
+  email: p.raman@example.internal
+criticality: P2
+sensitivity: CONFIDENTIAL
+retention: P7Y
+allowedIntents: [onboard, change]
+thresholds:
+  completeness: 99.0
+  validity: 99.5
+  accuracy: 97.0
+  consistency: 99.0
+  uniqueness: 99.0

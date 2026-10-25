@@ -1,0 +1,14 @@
+apiVersion: dq/v1
+kind: ValueSet
+valueSet: name-component-type
+version: 1.0.0
+title: Party name component type
+owner: Customer Data Office
+source:
+  authority: Customer Data Office — Party Data Standard v3
+updatedOn: '2026-09-15'
+caseSensitive: true
+values:
+  - { code: FIRST, label: First name }
+  - { code: MIDDLE, label: Middle name }
+  - { code: LAST, label: Last name }

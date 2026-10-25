@@ -1,0 +1,33 @@
+{
+  "intent": "onboard",
+  "object": "party",
+  "correlationId": "01J8Z6Q4T7X9K2M3N4P5Q6R7S8",
+  "note": "An individual captured with a surname only. Structurally valid, semantically incomplete.",
+  "payload": {
+    "party": {
+      "partyId": "PTY-00000004",
+      "individual": {
+        "names": [
+          { "type": "LAST", "value": "Okafor" }
+        ]
+      }
+    },
+    "relationship": {
+      "partyReferenceId": "CIF-000123457",
+      "partyId": "PTY-00000004",
+      "type": "CUSTOMER",
+      "lineOfBusiness": "RETAIL"
+    },
+    "contactPoints": [
+      {
+        "partyId": "PTY-00000004",
+        "contacts": [
+          {
+            "type": "CORRESPONDENCE",
+            "address": { "street1": "14 Marina Road", "city": "Lagos", "postalCode": "101241", "country": "NG" }
+          }
+        ]
+      }
+    ]
+  }
+}

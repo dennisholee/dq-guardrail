@@ -1,0 +1,202 @@
+apiVersion: dq/v1
+kind: QualityPack
+metadata:
+  name: object.party
+  version: 1.0.0
+  owner: Customer Data Office
+spec:
+  object:
+    name: party
+    schemaVersion: 1.0.0
+
+  requires:
+    - valueset.country-code-iso3166-1
+    - valueset.name-component-type
+    - valueset.document-type
+
+  syntax:
+    fromSchema:
+      ref: https://registry.internal/dq/schemas/party/1.0.0
+      assertFormat: true
+    extra:
+      - id: SYN-PTY-001
+        assert: "!('individual' in this) || !this.individual.names.exists(n1, this.individual.names.filter(n2, n2.type == n1.type).size() > 1)"
+        message: A party may carry at most one name component of each type
+        severity: MINOR
+        dimension: uniqueness
+        path: $.individual.names
+
+  semantic:
+    - id: SEM-PTY-001
+      assert: "('individual' in this) != ('organization' in this)"
+      message: A party is exactly one of individual or organization, never both and never neither
+      severity: CRITICAL
+      dimension: validity
+      costLimit: 100
+
+    - id: SEM-PTY-002
+      assert: "!('individual' in this) || (this.individual.names.exists(n, n.type == 'FIRST') && this.individual.names.exists(n, n.type == 'LAST'))"
+      message: An individual requires at least one FIRST and one LAST name component
+      severity: CRITICAL
+      dimension: completeness
+      path: $.individual.names
+
+    - id: SEM-PTY-003
+      assert: "!('organization' in this) || ('businessRegistrationNumber' in this.organization)"
+      message: An organisation requires a business registration number
+      severity: CRITICAL
+      dimension: completeness
+      path: $.organization.businessRegistrationNumber
+
+    - id: SEM-PTY-004
+      when: "'organization' in this && 'businessRegistrationNumber' in this.organization"
+      assert: "!refdata.exists(r, r.registrationNumber == this.organization.businessRegistrationNumber && r.name != this.organization.name)"
+      message: The organisation name does not match the registration record for this number
+      severity: MAJOR
+      dimension: accuracy
+      needs: [refdata]
+      path: $.organization.name
+
+  stateful:
+    - id: STA-PTY-001
+      when: "'prior' in this"
+      assert: "this.prior.partyId == this.partyId"
+      message: partyId is assigned once by the party master and may never change
+      severity: CRITICAL
+      dimension: consistency
+      needs: [history]
+      path: $.partyId
+
+  tests:
+    - rule: SYN-PTY-001
+      expect: pass
+      note: First and last name, one component of each type
+      input:
+        partyId: PTY-00000001
+        individual:
+          names:
+            - { type: FIRST, value: Amara }
+            - { type: LAST, value: Okafor }
+
+    - rule: SYN-PTY-001
+      expect: fail
+      note: Two LAST components — a merge artefact, not a valid name
+      input:
+        partyId: PTY-00000002
+        individual:
+          names:
+            - { type: LAST, value: Okafor }
+            - { type: LAST, value: Adeyemi }
+
+    - rule: SEM-PTY-001
+      expect: pass
+      note: Individual only
+      input:
+        partyId: PTY-00000001
+        individual:
+          names:
+            - { type: FIRST, value: Amara }
+            - { type: LAST, value: Okafor }
+
+    - rule: SEM-PTY-001
+      expect: fail
+      note: Both branches present — the schema cannot reject this without a combinator
+      input:
+        partyId: PTY-00000003
+        individual:
+          names:
+            - { type: FIRST, value: Amara }
+            - { type: LAST, value: Okafor }
+        organization:
+          name: Northwind Trading Ltd
+          countryOfIncorporation: GB
+          businessRegistrationNumber: "09876543"
+
+    - rule: SEM-PTY-002
+      expect: pass
+      note: First, middle and last
+      input:
+        partyId: PTY-00000001
+        individual:
+          names:
+            - { type: FIRST, value: Amara }
+            - { type: MIDDLE, value: Ngozi }
+            - { type: LAST, value: Okafor }
+
+    - rule: SEM-PTY-002
+      expect: fail
+      note: Surname only — mononym captures must still supply a FIRST component
+      input:
+        partyId: PTY-00000004
+        individual:
+          names:
+            - { type: LAST, value: Okafor }
+
+    - rule: SEM-PTY-003
+      expect: pass
+      note: UK limited company with a Companies House number
+      input:
+        partyId: PTY-00000005
+        organization:
+          name: Northwind Trading Ltd
+          countryOfIncorporation: GB
+          businessRegistrationNumber: "09876543"
+
+    - rule: SEM-PTY-003
+      expect: fail
+      note: The deliberate failure — an LLP with no registration number, waived only by the onboard relax
+      input:
+        partyId: PTY-00000006
+        organization:
+          name: Northwind Trading LLP
+          countryOfIncorporation: GB
+
+    - rule: STA-PTY-001
+      expect: pass
+      note: Resubmission of the same party
+      input:
+        partyId: PTY-00000001
+        prior:
+          partyId: PTY-00000001
+        individual:
+          names:
+            - { type: FIRST, value: Amara }
+            - { type: LAST, value: Okafor }
+
+    - rule: STA-PTY-001
+      expect: fail
+      note: partyId rewritten — the migration defect this rule exists to catch
+      input:
+        partyId: PTY-00000007
+        prior:
+          partyId: PTY-00000001
+        individual:
+          names:
+            - { type: FIRST, value: Amara }
+            - { type: LAST, value: Okafor }
+
+    # A rule that declares `needs` carries the provider data in the fixture's input, under
+    # the provider's name. The harness binds it; the validator checks that it is present.
+    - rule: SEM-PTY-004
+      expect: pass
+      note: Name agrees with the Companies House record
+      input:
+        partyId: PTY-00000005
+        organization:
+          name: Northwind Trading Ltd
+          countryOfIncorporation: GB
+          businessRegistrationNumber: "09876543"
+        refdata:
+          - { registrationNumber: "09876543", name: Northwind Trading Ltd }
+
+    - rule: SEM-PTY-004
+      expect: fail
+      note: The register says "Limited"; the party says "Ltd" — the same company, a different legal name
+      input:
+        partyId: PTY-00000005
+        organization:
+          name: Northwind Trading Ltd
+          countryOfIncorporation: GB
+          businessRegistrationNumber: "09876543"
+        refdata:
+          - { registrationNumber: "09876543", name: Northwind Trading Limited }

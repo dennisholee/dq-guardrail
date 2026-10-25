@@ -1,0 +1,34 @@
+{
+  "intent": "onboard",
+  "object": "party",
+  "correlationId": "01J8Z6Q4V1A2B3C4D5E6F7G8H3",
+  "note": "A home address only. The bank has nowhere to write.",
+  "payload": {
+    "party": {
+      "partyId": "PTY-00000005",
+      "individual": {
+        "names": [
+          { "type": "FIRST", "value": "Amara" },
+          { "type": "LAST", "value": "Okafor" }
+        ]
+      }
+    },
+    "relationship": {
+      "partyReferenceId": "CIF-000123458",
+      "partyId": "PTY-00000005",
+      "type": "CUSTOMER",
+      "lineOfBusiness": "RETAIL"
+    },
+    "contactPoints": [
+      {
+        "partyId": "PTY-00000005",
+        "contacts": [
+          {
+            "type": "HOME",
+            "address": { "street1": "14 Marina Road", "city": "Lagos", "postalCode": "101241", "country": "NG" }
+          }
+        ]
+      }
+    ]
+  }
+}

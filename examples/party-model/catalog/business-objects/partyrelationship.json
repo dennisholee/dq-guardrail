@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://registry.internal/dq/schemas/partyrelationship/1.0.0",
+  "title": "Party relationship",
+  "description": "A party's relationship with the bank itself. Deliberately not a general party-to-party graph: that is a different object with different owners, and conflating the two is how relationship data becomes unauditable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["partyReferenceId", "partyId", "type"],
+  "properties": {
+    "partyReferenceId": {
+      "type": "string",
+      "pattern": "^CIF-[0-9]{9}$",
+      "description": "The bank's own reference for this relationship. Distinct from partyId: the party is the customer, the reference is our account of them."
+    },
+    "partyId": {
+      "type": "string",
+      "pattern": "^PTY-[0-9]{8}$",
+      "description": "The party this relationship attaches to."
+    },
+    "type": { "$ref": "https://registry.internal/dq/valuesets/relation-type" },
+    "lineOfBusiness": {
+      "$ref": "https://registry.internal/dq/valuesets/line-of-business",
+      "description": "Required for CUSTOMER by SEM-PTR-001; not enforced here because a CONNECTED_PARTY may legitimately have none."
+    }
+  }
+}

@@ -1,0 +1,57 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://registry.internal/dq/schemas/file-manifest.schema.yaml
+title: File delivery manifest
+description: >-
+  The contract between an upstream extract and the gate job. Delivered alongside the data
+  file as <intent>-<object>-<yyyyMMdd>.manifest.json. The gate refuses the file before
+  reading a record if the address key does not resolve or the checksum does not match,
+  because a partial read of an unverified file is worse than no read at all.
+type: object
+additionalProperties: false
+required: [schemaVersion, intent, object, objectVersion, deliveryId, producedAt, source, format, recordCount, checksum]
+properties:
+  schemaVersion: { const: "1.0" }
+  intent: { type: string, pattern: '^[a-z][a-z0-9]*$' }
+  object: { type: string, pattern: '^[a-z][a-z0-9]*$' }
+  objectVersion: { type: string, pattern: '^[0-9]+\.[0-9]+\.[0-9]+$' }
+  deliveryId:
+    type: string
+    pattern: '^[0-9A-HJKMNP-TV-Z]{26}$'
+    description: ULID; carried as correlationId on every violation from this file.
+  producedAt: { type: string, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' }
+  source:
+    type: object
+    additionalProperties: false
+    required: [system]
+    properties:
+      system: { type: string, minLength: 2 }
+      run: { type: string }
+  format:
+    type: object
+    additionalProperties: false
+    required: [type, encoding]
+    properties:
+      type: { enum: [jsonl, csv, parquet] }
+      encoding: { enum: [utf-8] }
+      recordSeparator: { type: string, maxLength: 2 }
+      csv:
+        type: object
+        additionalProperties: false
+        required: [delimiter, quote, header]
+        properties:
+          delimiter: { type: string, maxLength: 1 }
+          quote: { type: string, maxLength: 1 }
+          header: { type: boolean }
+          lineEnding: { enum: [lf, crlf], default: lf }
+  recordCount: { type: integer, minimum: 0 }
+  checksum:
+    type: object
+    additionalProperties: false
+    required: [algorithm, value]
+    properties:
+      algorithm: { const: sha256 }
+      value: { type: string, pattern: '^[a-f0-9]{64}$' }
+  retention: { type: string, pattern: '^P[0-9]+(D|M|Y)$' }
+allOf:
+  - if: { properties: { format: { properties: { type: { const: csv } }, required: [type] } }, required: [format] }
+    then: { properties: { format: { required: [csv] } } }

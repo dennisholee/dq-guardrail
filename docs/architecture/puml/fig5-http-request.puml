@@ -1,0 +1,41 @@
+@startuml fig5-http-request
+' Fig 5 — HTTP request validation, ENFORCE and SHADOW paths.
+title Fig 5 — HTTP request validation (ENFORCE and SHADOW paths)
+
+autonumber
+skinparam defaultFontName "Segoe UI"
+
+actor Client as CL
+participant "Envoy Gateway\nC7a WASM" as EG
+participant "DQ engine C6\n(in-proc)" as EN
+database "Bundle cache\n(emptyDir, digest D1)" as BC
+participant "Customer service" as SVC
+queue "OTel C11" as OT
+
+CL -> EG : POST /create-customer
+EG -> EN : decode body and headers (dq.intent=create)
+EN -> BC : load resolved plan for (http, create, customer@1.4.0)
+note right of EN
+  tier 0 syntax (JSON Schema)
+  tier 1 semantic (CEL, cost-limited)
+  tier 2 stateful = async only on HTTP
+end note
+
+alt violation and mode = ENFORCE
+  EN --> EG : reject(violations[], digest D1)
+  EG --> CL : 422 application/problem+json
+  EN -> OT : dq.violations{mode=enforce}
+else violation and mode = SHADOW
+  EN -> OT : dq.violations{mode=shadow}
+  EN --> EG : continue
+  EG -> SVC : forward original request
+  SVC --> EG : 201 Created
+  EG --> CL : 201 Created
+else valid
+  EN -> OT : dq.rules.evaluated
+  EN --> EG : continue
+  EG -> SVC : forward request
+  SVC --> EG : 201 Created
+  EG --> CL : 201 Created
+end
+@enduml

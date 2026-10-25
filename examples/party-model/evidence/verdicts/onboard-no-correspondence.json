@@ -1,0 +1,24 @@
+{
+  "type": "https://registry.internal/problems/data-quality-violation",
+  "title": "Data quality violation",
+  "status": 422,
+  "detail": "1 violation",
+  "instance": "/onboard-party",
+  "correlationId": "01J8Z6Q4V1A2B3C4D5E6F7G8H3",
+  "packDigest": "sha256:e9ba9bc8270d155939a4595c3b22a26778273bdba7583e2c458677fa3bfa838e",
+  "violations": [
+    {
+      "ruleId": "SEM-ONB-002",
+      "severity": "CRITICAL",
+      "path": "$.contactPoints",
+      "dimension": "completeness",
+      "intent": "onboard",
+      "object": "party",
+      "objectVersion": "1.0.0",
+      "packDigest": "sha256:e9ba9bc8270d155939a4595c3b22a26778273bdba7583e2c458677fa3bfa838e",
+      "correlationId": "01J8Z6Q4V1A2B3C4D5E6F7G8H3",
+      "message": "Onboarding requires at least one CORRESPONDENCE contact point",
+      "retryable": false
+    }
+  ]
+}

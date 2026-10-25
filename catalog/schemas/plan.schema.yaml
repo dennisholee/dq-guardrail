@@ -1,0 +1,52 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://registry.internal/dq/schemas/plan.schema.yaml
+title: Resolved plan
+description: >-
+  One resolved plan per (channel, intent, object). Composition happens at compile time,
+  so the runtime performs no merging — which is what keeps the engine small enough to run
+  inside a WASM filter. This is an internal format governed by planFormat, not a public
+  contract: it may change with the engine, and only the bundle manifest's digest of it is
+  externally observable.
+type: object
+additionalProperties: false
+required: [planFormat, channel, intent, object, objectVersion, schemaMatcher, rules]
+properties:
+  planFormat: { const: 1 }
+  channel: { enum: [http, kafka, file] }
+  intent: { type: string, pattern: '^[a-z][a-z0-9]*$' }
+  object: { type: string, pattern: '^[a-z][a-z0-9]*$' }
+  objectVersion: { type: string, pattern: '^[0-9]+\.[0-9]+\.[0-9]+$' }
+  schemaMatcher:
+    type: object
+    additionalProperties: false
+    required: [ref, digest]
+    properties:
+      ref: { type: string, minLength: 1 }
+      digest: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+  providers: { type: array, uniqueItems: true, items: { enum: [valueset, refdata, history, delta] } }
+  rules:
+    type: array
+    minItems: 1
+    items:
+      type: object
+      additionalProperties: false
+      required: [id, tier, severity, dimension, assert]
+      properties:
+        id: { type: string, pattern: '^(SYN|SEM|STA)-[A-Z]{3}-[0-9]{3}$' }
+        tier: { enum: [0, 1, 2] }
+        severity: { enum: [CRITICAL, MAJOR, MINOR] }
+        dimension: { enum: [completeness, validity, accuracy, consistency, uniqueness, timeliness] }
+        when: { type: string }
+        assert: { type: string }
+        needs: { type: array, uniqueItems: true, items: { enum: [valueset, refdata, history, delta] } }
+        costLimit: { type: integer, minimum: 100 }
+        origin: { enum: [object, intent, channel] }
+  relax:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required: [rule, expiresAt]
+      properties:
+        rule: { type: string, pattern: '^(SYN|SEM|STA)-[A-Z]{3}-[0-9]{3}$' }
+        expiresAt: { type: string, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' }

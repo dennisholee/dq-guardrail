@@ -1,0 +1,49 @@
+@startuml fig1-logical-view
+' Fig 1 — Logical application view. Component IDs are canonical and reused verbatim in all other views.
+title Fig 1 — Logical application view
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam defaultFontName "Segoe UI"
+
+package "Z1 · Control plane (build time)" {
+  [C1 Business Object Registry\nJSON Schema 2020-12 + meta + value sets] as C1
+  [C2 Rule Repository\nobject packs · intent packs · bindings] as C2
+  [C3 dqctl\ncompile · align · generate · test · bundle] as C3
+  [C4 CI Gate\nSpectral · align · conformance · sign · SBOM] as C4
+  [C5 OCI Artifact Registry\nsigned dq-bundle@digest] as C5
+}
+
+package "Z2 · Data plane (runtime)" {
+  [C6 DQ Engine core\nschema matcher · CEL · context providers · violation model] as C6
+  [C7a WASM filter\nHTTP primary] as C7a
+  [C7b ext_proc service\nHTTP fallback] as C7b
+  [C7c Library adapter\nHTTP · Jobs · CI harness] as C7c
+  [C8 Kafka stream gate\n+ producer interceptor] as C8
+  [C9 File gate job\nstreaming, constant memory] as C9
+  [C10 QualityBinding\nCRD / Helm values] as C10
+}
+
+package "Z3 · Operations" {
+  [C11 OTel Collector\nmetrics · traces] as C11
+  [C12 Governance export\nDataHub / OpenMetadata assertions] as C12
+}
+
+C1 --> C3
+C2 --> C3
+C3 --> C4
+C4 --> C5
+C5 ..> C6 : pull + cosign verify (pinned digest)
+C10 ..> C7a : digest + mode
+C10 ..> C8 : digest + mode
+C10 ..> C9 : digest + mode
+C7a --> C6
+C7b --> C6
+C7c --> C6
+C8 --> C6
+C9 --> C6
+C6 --> C11
+C11 --> C12
+C12 ..> C2 : violation feedback (F9)
+@enduml

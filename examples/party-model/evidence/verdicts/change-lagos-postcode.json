@@ -1,0 +1,24 @@
+{
+  "type": "https://registry.internal/problems/data-quality-violation",
+  "title": "Data quality violation",
+  "status": 422,
+  "detail": "1 violation",
+  "instance": "/change-contactpoint",
+  "correlationId": "01J8Z6Q4W9M8N7P6Q5R4S3T2V7",
+  "packDigest": "sha256:980156cc5b067c07cfb596e71747ec72fb54dfe2ab1237ed0f6275be5cc872f4",
+  "violations": [
+    {
+      "ruleId": "SEM-CPT-001",
+      "severity": "CRITICAL",
+      "path": "$.contacts",
+      "dimension": "validity",
+      "intent": "change",
+      "object": "contactpoint",
+      "objectVersion": "1.0.0",
+      "packDigest": "sha256:980156cc5b067c07cfb596e71747ec72fb54dfe2ab1237ed0f6275be5cc872f4",
+      "correlationId": "01J8Z6Q4W9M8N7P6Q5R4S3T2V7",
+      "message": "The postal code must match the grammar of the address country",
+      "retryable": false
+    }
+  ]
+}

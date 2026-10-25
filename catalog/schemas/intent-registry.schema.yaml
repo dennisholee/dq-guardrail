@@ -1,0 +1,29 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://registry.internal/dq/schemas/intent-registry.schema.yaml
+title: Intent registry
+description: >-
+  The closed, governed vocabulary of business intents. `name` is the first segment of
+  the address key and must not contain a hyphen, because the key splits on the first
+  hyphen. `code` is the three-letter token used in rule IDs for that intent, which is
+  what lets intent rules satisfy the rule-ID pattern without widening it.
+type: object
+additionalProperties: false
+required: [apiVersion, kind, intents]
+properties:
+  apiVersion: { const: dq/v1 }
+  kind: { const: IntentRegistry }
+  intents:
+    type: array
+    minItems: 1
+    items:
+      type: object
+      additionalProperties: false
+      required: [name, code, description, owner, approvedOn]
+      properties:
+        name: { type: string, pattern: '^[a-z][a-z0-9]*$' }
+        code: { type: string, pattern: '^[A-Z]{3}$' }
+        description: { type: string, minLength: 10, maxLength: 200 }
+        owner: { type: string, minLength: 2 }
+        approvedOn: { type: string, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }
+        writeChannel: { type: boolean, default: true }
+        alias: { type: string, maxLength: 60, description: 'Business label, e.g. "Onboard customer"' }

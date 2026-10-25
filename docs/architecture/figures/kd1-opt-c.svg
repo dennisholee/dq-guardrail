@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 250" width="740" height="250" role="img" aria-label="Option C: library middleware">
+  <defs>
+    <marker id="mC" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+      <path d="M0,0 L9,3.5 L0,7 z" fill="#5B6B7F"/>
+    </marker>
+  </defs>
+  <rect width="740" height="250" fill="#F7F9FC"/>
+  <text x="20" y="26" font-family="Segoe UI,Inter,Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#101828">Option C — Library middleware (in-app, opt-in)</text>
+
+  <rect x="20" y="100" width="100" height="52" rx="6" fill="#FFFFFF" stroke="#5B6B7F" stroke-width="1.5"/>
+  <text x="70" y="130" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#1D2939">Client</text>
+
+  <rect x="150" y="70" width="240" height="112" rx="8" fill="#EEF7F5" stroke="#0F7B6C" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="270" y="88" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#0F7B6C">Application pod</text>
+
+  <rect x="164" y="98" width="212" height="30" rx="5" fill="#FFFFFF" stroke="#5B6B7F" stroke-width="1.2"/>
+  <text x="270" y="118" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#1D2939">HTTP handler / route</text>
+
+  <rect x="164" y="136" width="212" height="32" rx="5" fill="#DCF0EA" stroke="#0F7B6C" stroke-width="2"/>
+  <text x="270" y="157" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#0B5A4F">DQ lib (C7c) → engine C6</text>
+
+  <rect x="470" y="70" width="150" height="52" rx="6" fill="#FFFFFF" stroke="#5B6B7F" stroke-width="1.5"/>
+  <text x="545" y="92" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="12" fill="#1D2939">Business logic</text>
+  <text x="545" y="108" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#475467">same process</text>
+
+  <rect x="470" y="146" width="150" height="56" rx="6" fill="#FEF3F2" stroke="#B42318" stroke-width="1.4" stroke-dasharray="5 3"/>
+  <text x="545" y="167" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#B42318">Opt-in: not adopted</text>
+  <text x="545" y="183" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#B42318">= not validated</text>
+
+  <line x1="120" y1="126" x2="162" y2="116" stroke="#5B6B7F" stroke-width="1.5" marker-end="url(#mC)"/>
+  <line x1="270" y1="128" x2="270" y2="134" stroke="#5B6B7F" stroke-width="1.5" marker-end="url(#mC)"/>
+  <line x1="376" y1="152" x2="468" y2="104" stroke="#5B6B7F" stroke-width="1.5" marker-end="url(#mC)"/>
+
+  <text x="20" y="212" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#475467">~30–80 µs · no buffering limits · covers Jobs, stream processors and the CI harness · rule change needs a redeploy per service</text>
+  <text x="20" y="232" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#475467">Requires a nightly route-drift detector to close the adoption gap.</text>
+</svg>

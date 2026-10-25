@@ -1,0 +1,15 @@
+object: partyrelationship
+version: 1.0.0
+owner: Customer Data Office
+steward:
+  name: Daniel Whitfield
+  email: d.whitfield@example.internal
+criticality: P1
+sensitivity: CONFIDENTIAL
+retention: P7Y
+allowedIntents: [onboard]
+thresholds:
+  completeness: 100
+  validity: 100
+  consistency: 99.9
+  uniqueness: 100

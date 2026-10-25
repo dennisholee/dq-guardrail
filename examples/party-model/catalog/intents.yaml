@@ -1,0 +1,18 @@
+apiVersion: dq/v1
+kind: IntentRegistry
+intents:
+  - name: onboard
+    code: ONB
+    alias: Onboard customer
+    description: Establish a party, its relationship with the bank, and its contact points in one request.
+    owner: Customer Data Office
+    approvedOn: '2026-09-15'
+    writeChannel: true
+
+  - name: change
+    code: CHG
+    alias: Change address
+    description: Amend one contact point's postal address, effective from a stated date.
+    owner: Customer Data Office
+    approvedOn: '2026-09-15'
+    writeChannel: true

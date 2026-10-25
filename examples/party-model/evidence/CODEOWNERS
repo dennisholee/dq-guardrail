@@ -1,0 +1,34 @@
+# Ownership for the party model sample.
+#
+# Two rules of substance, both from the design: the steward of an object owns its contract
+# and its rules together (otherwise the rule drifts from the field it protects), and no
+# single person may both author and approve a relaxation.
+
+# Default: the platform team owns everything not claimed below.
+*                                   @customer-data-platform
+
+# Canonical contracts and their rules move together.
+/catalog/business-objects/party.json            @a.okafor @customer-data-platform
+/catalog/business-objects/party.meta.yaml       @a.okafor
+/rules/object/party.pack.yaml                   @a.okafor @customer-data-platform
+
+/catalog/business-objects/partyrelationship.json @d.whitfield @customer-data-platform
+/catalog/business-objects/partyrelationship.meta.yaml @d.whitfield
+/rules/object/partyrelationship.pack.yaml        @d.whitfield @customer-data-platform
+
+/catalog/business-objects/contactpoint.json      @p.raman @customer-data-platform
+/catalog/business-objects/contactpoint.meta.yaml @p.raman
+/rules/object/contactpoint.pack.yaml             @p.raman @customer-data-platform
+
+# Value sets are reference data: changing one changes every object that references it.
+/catalog/value-sets/                @reference-data-office @customer-data-platform
+/catalog/intents.yaml               @customer-data-office
+
+# Intent rules need the business owner as well as the platform, because an intent rule
+# constrains how the bank does business, not how a field is shaped.
+/rules/intent/                      @customer-data-office @customer-data-platform
+
+# Evidence and bindings are release artefacts. The approver who signs a relax must not be
+# the only reviewer here.
+/evidence/                          @customer-data-platform @risk-and-control
+/bindings/                          @customer-data-platform @risk-and-control

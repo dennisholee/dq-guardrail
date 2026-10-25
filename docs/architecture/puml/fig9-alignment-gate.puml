@@ -1,0 +1,35 @@
+@startuml fig9-alignment-gate
+' Fig 9 — Contract and rule alignment gate, runs on every pull request.
+title Fig 9 — Contract and rule alignment gate (every PR)
+
+skinparam defaultFontName "Segoe UI"
+
+start
+:resolve OpenAPI document (bundle $refs);
+:extract request and response schema per operation;
+:parse path into intent and object;
+if (path matches ^/[a-z]+-[a-z0-9-]+$ and object registered?) then (yes)
+else (no)
+  :FAIL unregistered object or malformed address;
+  stop
+endif
+:compile canonical schema and contract schema to normalised IR;
+:diff IR on required, type, enum, pattern, range, nullable;
+if (contract loosens a canonical invariant?) then (yes)
+  :FAIL contract weakens object invariant;
+  stop
+else (no)
+  :contract is equal or stricter;
+endif
+:check every rule field exists in the contract;
+:check every contract field has a rule or x-dq-unvalidated;
+if (generated x-dq-rules is stale?) then (yes)
+  :FAIL run dqctl generate;
+  stop
+else (no)
+endif
+:emit pass, fail and edge fixtures from rule test cases;
+:run conformance against engine or staging;
+:PASS mergeable;
+stop
+@enduml

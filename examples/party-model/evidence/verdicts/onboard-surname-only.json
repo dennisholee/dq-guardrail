@@ -1,0 +1,24 @@
+{
+  "type": "https://registry.internal/problems/data-quality-violation",
+  "title": "Data quality violation",
+  "status": 422,
+  "detail": "1 violation",
+  "instance": "/onboard-party",
+  "correlationId": "01J8Z6Q4T7X9K2M3N4P5Q6R7S8",
+  "packDigest": "sha256:2bfdf26351ad5927273957fe5d4646e890e312e69179e51ae3ea4a09f7b6a421",
+  "violations": [
+    {
+      "ruleId": "SEM-PTY-002",
+      "severity": "CRITICAL",
+      "path": "$.individual.names",
+      "dimension": "completeness",
+      "intent": "onboard",
+      "object": "party",
+      "objectVersion": "1.0.0",
+      "packDigest": "sha256:2bfdf26351ad5927273957fe5d4646e890e312e69179e51ae3ea4a09f7b6a421",
+      "correlationId": "01J8Z6Q4T7X9K2M3N4P5Q6R7S8",
+      "message": "An individual requires at least one FIRST and one LAST name component",
+      "retryable": false
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+object: party
+version: 1.0.0
+owner: Customer Data Office
+steward:
+  name: Amara Okafor
+  email: a.okafor@example.internal
+criticality: P1
+sensitivity: RESTRICTED
+retention: P7Y
+allowedIntents: [onboard, change]
+thresholds:
+  completeness: 99.5
+  validity: 99.0
+  accuracy: 98.0
+  consistency: 99.5
+  uniqueness: 100

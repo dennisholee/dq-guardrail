@@ -1,0 +1,34 @@
+@startuml fig7-kafka
+' Fig 7 — Kafka produce, validate, DLQ and replay.
+title Fig 7 — Kafka produce, validate, DLQ and replay
+
+autonumber
+skinparam defaultFontName "Segoe UI"
+
+participant "Producer\nC8 interceptor" as P
+queue "topic customer.created" as T
+participant "C8 stream gate\n(Kafka Streams)" as G
+queue "topic customer.created.validated" as V
+queue "topic customer.created.dlq" as D
+participant "Consumer service" as C
+participant "dqctl replay\n(ops tool)" as R
+
+P -> P : attach dq.intent, dq.object@version
+P -> T : produce
+T -> G : record
+G -> G : tier 0 + tier 1 (bundle D1)\ntier 2 = delta window uniqueness
+
+alt valid
+  G -> V : forward + dq.pack-digest=D1
+  V -> C : consume
+else CRITICAL or MAJOR violation
+  G -> D : forward + dq.violations (base64, capped)
+  note right of D : alerts dq.violations{channel=kafka}
+else MINOR violation only
+  G -> V : forward + dq.warn=1
+  V -> C : consume
+end
+
+R -> D : after rule fix or data repair
+R -> T : re-produce with original headers
+@enduml

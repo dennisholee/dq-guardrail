@@ -1,0 +1,36 @@
+@startuml fig6-rule-rollout
+' Fig 6 — Rule change lifecycle: author, align, publish, rollout, promote.
+title Fig 6 — Rule change: author, align, publish, rollout, promote
+
+autonumber
+skinparam defaultFontName "Segoe UI"
+
+actor "Data steward" as ST
+participant "Git\ncatalog/ rules/ bindings/" as GIT
+participant "CI · C3 + C4" as CI
+participant "OCI registry C5" as OCI
+participant "Argo CD" as ARGO
+participant "QualityBinding C10" as CRD
+participant "Engine pods C6" as POD
+database "Metrics C11" as M
+
+ST -> GIT : PR: add SEM-CUS-005 (MAJOR)
+GIT -> CI : webhook
+CI -> CI : Spectral: intent-object, $ref, 422 declared
+CI -> CI : dqctl align: schema vs OpenAPI IR diff
+CI -> CI : dqctl test: pass, fail, edge fixtures
+CI -> CI : compile, cosign sign, SBOM
+CI -> OCI : push dq-bundle@sha256:D2
+CI --> ST : checks green, 2 approvals required
+ST -> GIT : merge
+GIT -> ARGO : sync bindings/customer-service.yaml (mode SHADOW, digest D2)
+ARGO -> CRD : apply
+CRD -> POD : rolling restart / filter reload
+POD -> OCI : pull and verify D2 (then cached)
+POD -> M : dq.violations{mode=shadow, packDigest=D2}
+M --> ST : 7-day shadow report, false-positive review
+note right of ST
+  promote SHADOW -> WARN -> ENFORCE
+  one-line PR; revert is the kill switch
+end note
+@enduml
