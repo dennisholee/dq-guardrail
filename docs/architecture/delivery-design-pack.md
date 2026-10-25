@@ -588,6 +588,13 @@ This is the part a comparison table cannot supply. The distinction is the one §
 | an unrouted path is not decided | 201 from the upstream, which counts it |
 | with the filter gone, ENFORCE fails closed | 504, upstream still not called |
 
+**T4 is implemented, not just specified.** `engine/adapter/conformance_test.go` replays every
+stored scenario through four paths — the engine directly, the library adapter, the `ext_proc`
+service over a real gRPC stream, and the stream gate — and fails if any two disagree on the
+verdict, or if the two HTTP implementations render different problem documents. A channel that
+drops a rule, binds `this` differently or skips a provider now breaks a test instead of a
+customer's expectations.
+
 Three defects came out of writing it, and none would have been found by a unit test with a fake stream: a header mutation sent in the request phase travels **upstream**, so `DQ-Pack-Digest` never reached the caller until this section required the response phase; a `direct_response` route is a *local reply*, which ext_proc skips entirely, so the first harness could not observe its own response header; and the daemon must listen on both families, because Envoy resolved a host-gateway name to IPv6 while the service bound IPv4.
 
 ---
