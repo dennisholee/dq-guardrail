@@ -16,6 +16,7 @@ tables are the human narrative of the same contracts.
 | `file-manifest.schema.yaml` | `<intent>-<object>-<yyyyMMdd>.manifest.json` | §2.5 |
 | `violation.schema.yaml` | The violation object and its RFC 9457 envelope | §2.6 |
 | `bundle-manifest.schema.yaml` | `bundle.yaml` inside the artefact | §4.2, `bundleFormat: 2` |
+| `governance-export.schema.yaml` | `evidence/governance-export.json` | §2.8 |
 | `plan.schema.yaml` | `plans/*.plan.json` (internal, `planFormat: 1`) | App C.4 |
 
 ## Conventions these schemas encode

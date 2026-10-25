@@ -147,6 +147,8 @@ func SchemaForPath(rel string) string {
 		return "quality-binding.schema.yaml"
 	case rel == "evidence/bundle.yaml":
 		return "bundle-manifest.schema.yaml"
+	case rel == "evidence/governance-export.json":
+		return "governance-export.schema.yaml"
 	case dir == "evidence/plans":
 		return "plan.schema.yaml"
 	case dir == "evidence/verdicts":

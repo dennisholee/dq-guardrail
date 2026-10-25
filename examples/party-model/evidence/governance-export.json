@@ -1,0 +1,323 @@
+{
+  "exportFormat": 1,
+  "generatedFrom": {
+    "bundleDigest": "sha256:1bdb6a58f93c2277b4ed6aa72d4ecdbddc921eb748159346eac78c73dfdc0a48",
+    "objectCount": 3,
+    "ruleCount": 24,
+    "valueSetCount": 6
+  },
+  "objects": [
+    {
+      "name": "contactpoint",
+      "version": "1.0.0",
+      "description": "Contact point: A party's contact points, modelled on ISO 19160-4 address components. The address is a postal address, not a free-text line: a free-text line cannot be validated against a country's postcode grammar, which is what SEM-CPT-001 needs.",
+      "contractDigest": "sha256:2457e3e4e32ef88dd97955e79296e5af271589b1cf7928e7d3f7476e69191b3a",
+      "owner": "Customer Data Office",
+      "steward": {
+        "name": "Priya Raman",
+        "email": "p.raman@example.internal"
+      },
+      "criticality": "P2",
+      "sensitivity": "CONFIDENTIAL",
+      "retention": "P7Y",
+      "allowedIntents": [
+        "onboard",
+        "change"
+      ],
+      "thresholds": {
+        "accuracy": 97,
+        "completeness": 99,
+        "consistency": 99,
+        "uniqueness": 99,
+        "validity": 99.5
+      },
+      "fields": [
+        {
+          "path": "$.contacts",
+          "description": "",
+          "required": true,
+          "governedBy": [
+            "SEM-CPT-001",
+            "SEM-CPT-002",
+            "SEM-CPT-003",
+            "SEM-CPT-004",
+            "SYN-CPT-001"
+          ]
+        },
+        {
+          "path": "$.partyId",
+          "description": "",
+          "required": true,
+          "governedBy": []
+        }
+      ],
+      "rules": [
+        {
+          "ruleId": "SEM-CPT-001",
+          "severity": "CRITICAL",
+          "dimension": "validity",
+          "message": "The postal code must match the grammar of the address country",
+          "packDigest": "sha256:980156cc5b067c07cfb596e71747ec72fb54dfe2ab1237ed0f6275be5cc872f4"
+        },
+        {
+          "ruleId": "SEM-CPT-002",
+          "severity": "MAJOR",
+          "dimension": "completeness",
+          "message": "United States and Canadian addresses require an administrative area",
+          "packDigest": "sha256:980156cc5b067c07cfb596e71747ec72fb54dfe2ab1237ed0f6275be5cc872f4"
+        },
+        {
+          "ruleId": "SEM-CPT-003",
+          "severity": "MAJOR",
+          "dimension": "accuracy",
+          "message": "The city does not match the locality recorded for that postal code",
+          "packDigest": "sha256:980156cc5b067c07cfb596e71747ec72fb54dfe2ab1237ed0f6275be5cc872f4"
+        },
+        {
+          "ruleId": "SEM-CPT-004",
+          "severity": "MINOR",
+          "dimension": "consistency",
+          "message": "A HOME and CORRESPONDENCE address sharing a postal code must share a city",
+          "packDigest": "sha256:980156cc5b067c07cfb596e71747ec72fb54dfe2ab1237ed0f6275be5cc872f4"
+        },
+        {
+          "ruleId": "SYN-CPT-001",
+          "severity": "MINOR",
+          "dimension": "uniqueness",
+          "message": "A party may hold at most one contact point of each type",
+          "packDigest": "sha256:980156cc5b067c07cfb596e71747ec72fb54dfe2ab1237ed0f6275be5cc872f4"
+        }
+      ],
+      "valueSets": [
+        {
+          "name": "contact-point-type",
+          "version": "1.0.0",
+          "digest": "sha256:95dffd18403142fdd1b958fbc63a5afacbf05c46477fd54eaa58366055c4f1ea"
+        },
+        {
+          "name": "country-code-iso3166-1",
+          "version": "1.0.0",
+          "digest": "sha256:4007e7f912bc0f98ef907c4d77a707e5d3b0fcd18636d5e1c0ef786bcf96cb07"
+        }
+      ]
+    },
+    {
+      "name": "party",
+      "version": "1.0.0",
+      "description": "Party: A party the bank knows, individual or organisation. Exactly one of `individual` and `organization` is present; that is a tier-1 rule (SEM-PTY-001), not a oneOf, because a violation naming the missing branch is more useful to a caller than a structural rejection.",
+      "contractDigest": "sha256:378b9efa2b8b2267a19de29d97126c8bb451971ff9c0aaf370b54060e8698b89",
+      "owner": "Customer Data Office",
+      "steward": {
+        "name": "Amara Okafor",
+        "email": "a.okafor@example.internal"
+      },
+      "criticality": "P1",
+      "sensitivity": "RESTRICTED",
+      "retention": "P7Y",
+      "allowedIntents": [
+        "onboard",
+        "change"
+      ],
+      "thresholds": {
+        "accuracy": 98,
+        "completeness": 99.5,
+        "consistency": 99.5,
+        "uniqueness": 100,
+        "validity": 99
+      },
+      "fields": [
+        {
+          "path": "$.individual",
+          "description": "",
+          "governedBy": [
+            "SEM-PTY-002",
+            "SYN-PTY-001"
+          ]
+        },
+        {
+          "path": "$.organization",
+          "description": "",
+          "governedBy": [
+            "SEM-PTY-003",
+            "SEM-PTY-004"
+          ]
+        },
+        {
+          "path": "$.partyId",
+          "description": "Assigned once by the party master and immutable thereafter (STA-PTY-001).",
+          "required": true,
+          "governedBy": [
+            "STA-PTY-001"
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "ruleId": "SEM-PTY-001",
+          "severity": "CRITICAL",
+          "dimension": "validity",
+          "message": "A party is exactly one of individual or organization, never both and never neither",
+          "packDigest": "sha256:2bfdf26351ad5927273957fe5d4646e890e312e69179e51ae3ea4a09f7b6a421"
+        },
+        {
+          "ruleId": "SEM-PTY-002",
+          "severity": "CRITICAL",
+          "dimension": "completeness",
+          "message": "An individual requires at least one FIRST and one LAST name component",
+          "packDigest": "sha256:2bfdf26351ad5927273957fe5d4646e890e312e69179e51ae3ea4a09f7b6a421"
+        },
+        {
+          "ruleId": "SEM-PTY-003",
+          "severity": "CRITICAL",
+          "dimension": "completeness",
+          "message": "An organisation requires a business registration number",
+          "packDigest": "sha256:2bfdf26351ad5927273957fe5d4646e890e312e69179e51ae3ea4a09f7b6a421"
+        },
+        {
+          "ruleId": "SEM-PTY-004",
+          "severity": "MAJOR",
+          "dimension": "accuracy",
+          "message": "The organisation name does not match the registration record for this number",
+          "packDigest": "sha256:2bfdf26351ad5927273957fe5d4646e890e312e69179e51ae3ea4a09f7b6a421"
+        },
+        {
+          "ruleId": "STA-PTY-001",
+          "severity": "CRITICAL",
+          "dimension": "consistency",
+          "message": "partyId is assigned once by the party master and may never change",
+          "packDigest": "sha256:2bfdf26351ad5927273957fe5d4646e890e312e69179e51ae3ea4a09f7b6a421"
+        },
+        {
+          "ruleId": "SYN-PTY-001",
+          "severity": "MINOR",
+          "dimension": "uniqueness",
+          "message": "A party may carry at most one name component of each type",
+          "packDigest": "sha256:2bfdf26351ad5927273957fe5d4646e890e312e69179e51ae3ea4a09f7b6a421"
+        }
+      ],
+      "valueSets": [
+        {
+          "name": "country-code-iso3166-1",
+          "version": "1.0.0",
+          "digest": "sha256:4007e7f912bc0f98ef907c4d77a707e5d3b0fcd18636d5e1c0ef786bcf96cb07"
+        },
+        {
+          "name": "document-type",
+          "version": "1.0.0",
+          "digest": "sha256:278200a26c3513e2f9f65932fe183b0e8637d8bba0933fd347d6ff45ef73f8cb"
+        },
+        {
+          "name": "name-component-type",
+          "version": "1.0.0",
+          "digest": "sha256:2affe74ebef0052240416c3092aba7849d446f07140596ea044c08e9eccc07a1"
+        }
+      ]
+    },
+    {
+      "name": "partyrelationship",
+      "version": "1.0.0",
+      "description": "Party relationship: A party's relationship with the bank itself. Deliberately not a general party-to-party graph: that is a different object with different owners, and conflating the two is how relationship data becomes unauditable.",
+      "contractDigest": "sha256:85b6d25a001599205516143dad1e41411be09059f313c0cab6589ee4bc7fdd51",
+      "owner": "Customer Data Office",
+      "steward": {
+        "name": "Daniel Whitfield",
+        "email": "d.whitfield@example.internal"
+      },
+      "criticality": "P1",
+      "sensitivity": "CONFIDENTIAL",
+      "retention": "P7Y",
+      "allowedIntents": [
+        "onboard"
+      ],
+      "thresholds": {
+        "completeness": 100,
+        "consistency": 99.9,
+        "uniqueness": 100,
+        "validity": 100
+      },
+      "fields": [
+        {
+          "path": "$.lineOfBusiness",
+          "description": "Required for CUSTOMER by SEM-PTR-001; not enforced here because a CONNECTED_PARTY may legitimately have none.",
+          "governedBy": [
+            "SEM-PTR-001",
+            "SEM-PTR-002"
+          ]
+        },
+        {
+          "path": "$.partyId",
+          "description": "The party this relationship attaches to.",
+          "required": true,
+          "governedBy": [
+            "SEM-PTR-003"
+          ]
+        },
+        {
+          "path": "$.partyReferenceId",
+          "description": "The bank's own reference for this relationship. Distinct from partyId: the party is the customer, the reference is our account of them.",
+          "required": true,
+          "governedBy": [
+            "SEM-PTR-004"
+          ]
+        },
+        {
+          "path": "$.type",
+          "description": "",
+          "required": true,
+          "governedBy": [
+            "STA-PTR-001"
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "ruleId": "SEM-PTR-001",
+          "severity": "CRITICAL",
+          "dimension": "completeness",
+          "message": "A CUSTOMER relationship must be booked to a line of business",
+          "packDigest": "sha256:eb91ec28744e767c65d3c9a26d40d4c8e35dc56ad9fd30bf60aedcf91edb4d79"
+        },
+        {
+          "ruleId": "SEM-PTR-002",
+          "severity": "MAJOR",
+          "dimension": "consistency",
+          "message": "A CONNECTED_PARTY inherits the customer's line of business and must not state its own",
+          "packDigest": "sha256:eb91ec28744e767c65d3c9a26d40d4c8e35dc56ad9fd30bf60aedcf91edb4d79"
+        },
+        {
+          "ruleId": "SEM-PTR-003",
+          "severity": "CRITICAL",
+          "dimension": "validity",
+          "message": "The party reference does not resolve to a known party",
+          "packDigest": "sha256:eb91ec28744e767c65d3c9a26d40d4c8e35dc56ad9fd30bf60aedcf91edb4d79"
+        },
+        {
+          "ruleId": "SEM-PTR-004",
+          "severity": "CRITICAL",
+          "dimension": "uniqueness",
+          "message": "The party already holds a CUSTOMER relationship under another reference",
+          "packDigest": "sha256:eb91ec28744e767c65d3c9a26d40d4c8e35dc56ad9fd30bf60aedcf91edb4d79"
+        },
+        {
+          "ruleId": "STA-PTR-001",
+          "severity": "MAJOR",
+          "dimension": "consistency",
+          "message": "A CUSTOMER relationship may never be demoted to CONNECTED_PARTY",
+          "packDigest": "sha256:eb91ec28744e767c65d3c9a26d40d4c8e35dc56ad9fd30bf60aedcf91edb4d79"
+        }
+      ],
+      "valueSets": [
+        {
+          "name": "line-of-business",
+          "version": "1.0.0",
+          "digest": "sha256:b8598b3d7f63d352391ae1d04254278cc5067598c930ec0e73e120c2a53cfe36"
+        },
+        {
+          "name": "relation-type",
+          "version": "1.0.0",
+          "digest": "sha256:fa2a4c5dc43d62c676f8ae1bc04b59856fa5f8027eb6f20d5c36e35b7071c3a6"
+        }
+      ]
+    }
+  ]
+}

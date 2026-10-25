@@ -22,14 +22,14 @@ Diagrams are code: `docs/architecture/puml/` compiles to `docs/architecture/figu
 make -C docs/architecture check    # render SVG, XML-validate, resolve all cross-document links
 ```
 
-- **CI alignment gate:** [`ci/spectral.yaml`](ci/spectral.yaml), [`ci/dqctl-align.yml`](ci/dqctl-align.yml) — 19 steps, green locally; the registry push and cosign signing are deferred until `dqctl publish` gains a registry client. What a consumer *can* do today is `dqctl verify`, which reads a layout back from disk and re-hashes every blob against the digest that names it. The last step runs a real Envoy with the `ext_proc` filter and asserts interception (`ci/e2e/extproc.sh`)
+- **CI alignment gate:** [`ci/spectral.yaml`](ci/spectral.yaml), [`ci/dqctl-align.yml`](ci/dqctl-align.yml) — 20 steps, green locally; the registry push and cosign signing are deferred until `dqctl publish` gains a registry client. What a consumer *can* do today is `dqctl verify`, which reads a layout back from disk and re-hashes every blob against the digest that names it. The last step runs a real Envoy with the `ext_proc` filter and asserts interception (`ci/e2e/extproc.sh`)
 
 ### Implementation
 
 | Path | What | Status |
 |---|---|---|
 | [`engine/`](engine/) | Artefact model, schema registry, checks, S2 lint, L1/L3/L4 alignment, CEL evaluation, tier-0 validation, HTTP / Kafka / file adapters, deterministic bundling | Working (M1.1–M1.3, M2, M4 gate logic, M5 file) |
-| [`tools/dqctl/`](tools/dqctl/) | `validate`, `lint`, `align`, `bundle`, `test`, `generate`, `publish`, `verify`, `explain`, `gate`, `crd`, `scorecard`, `version` | Working; only the registry push in `publish` is unimplemented |
+| [`tools/dqctl/`](tools/dqctl/) | `validate`, `lint`, `align`, `bundle`, `test`, `generate`, `publish`, `verify`, `explain`, `gate`, `crd`, `scorecard`, `export`, `version` | Working; only the registry push in `publish` is unimplemented |
 | [`tools/dqextprocd/`](tools/dqextprocd/) | C7b — the `ext_proc` service Envoy calls | Working; conformance-tested by `ci/e2e/extproc.sh` |
 | [`engine/adapter/`](engine/adapter/) | C7c HTTP middleware, the file gate (C9), Kafka gate logic (C8), and `ext_proc` (C7b) | Working; the Kafka client binding is not written |
 | [`catalog/schemas/`](catalog/schemas/) | 11 JSON Schema 2020-12 formats, all with a consumer | v1.2.0 |

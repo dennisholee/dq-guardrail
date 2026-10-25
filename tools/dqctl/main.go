@@ -57,6 +57,8 @@ func run(args []string) int {
 		return cmdCRD(args[1:])
 	case "scorecard":
 		return cmdScorecard(args[1:])
+	case "export":
+		return cmdExport(args[1:])
 	case "help", "-h", "--help":
 		usage()
 		return engine.ExitOK
@@ -84,6 +86,7 @@ Usage:
   dqctl gate     --manifest FILE --input FILE [--out DIR] [--json]
   dqctl crd      [--schemas DIR] [--out FILE] [--json]
   dqctl scorecard [--root DIR] [--check] [--json]
+  dqctl export   [--root DIR] [--out FILE] [--check] [--json]
 
 validate  parse every document, validate it against catalog/schemas, check the chain
           from contract to verdict and recompute every digest in the evidence
@@ -100,6 +103,8 @@ publish   write an OCI image layout for a bundle and print the digest a binding 
           Pushing to a registry is NOT implemented: --registry writes the layout and exits 3
 verify    check a layout read back from disk: the header, the index, and every digest in the
           chain against the bytes that are actually there. A digest nobody verifies is a comment
+export    write the governance projection into a data catalogue, or with --check verify the
+          committed copy still describes the tree. Generated, one-way, never hand-edited (S5)
 explain   decide one record and, with --out, write the verdict. This is how a committed
           verdict is regenerated and how a squad sees why a payload was rejected
 gate      run the file channel over one delivery: verify the checksum, then stream every
@@ -401,6 +406,76 @@ func cmdPublish(args []string) int {
 		return engine.ExitToolchain
 	}
 	return doc.ExitCode()
+}
+
+// cmdExport writes the governance projection, or with --check verifies the committed copy is
+// current. It is a projection of the tree, never an input to it: the catalogue is read-only with
+// respect to rules (S5), because a second editable copy is how a single source of truth dies.
+func cmdExport(args []string) int {
+	fs := flag.NewFlagSet("export", flag.ContinueOnError)
+	root := fs.String("root", ".", "artefact tree")
+	out := fs.String("out", "evidence/governance-export.json", "export path, relative to the tree")
+	check := fs.Bool("check", false, "verify the committed export instead of writing it")
+	jsonOut := fs.Bool("json", false, "write the JSON report")
+	if err := fs.Parse(args); err != nil {
+		return engine.ExitToolchain
+	}
+
+	rep := engine.NewReport("export", version)
+	m, err := engine.Load(*root)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "dqctl: %v\n", err)
+		rep.Findings().Error(engine.CodeParse, *root, err.Error())
+		return finish(rep.Document(), *jsonOut)
+	}
+
+	fresh, err := engine.BuildGovernanceExport(m)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "dqctl: %v\n", err)
+		rep.Findings().Error(engine.CodeChainUnknown, *root, err.Error())
+		return finish(rep.Document(), *jsonOut)
+	}
+	body, err := engine.MarshalGovernanceExport(fresh)
+	if err != nil {
+		rep.Findings().Error(engine.CodeChainUnknown, *root, err.Error())
+		return finish(rep.Document(), *jsonOut)
+	}
+
+	path := filepath.Join(*root, filepath.FromSlash(*out))
+	if *check {
+		committed, err := os.ReadFile(path)
+		if err != nil {
+			rep.Findings().Error(engine.CodeChainUnknown, *out,
+				"no committed export; run `dqctl export` and commit the result")
+			return finish(rep.Document(), *jsonOut)
+		}
+		if !bytes.Equal(committed, body) {
+			rep.Findings().Error(engine.CodeDigestMismatch, *out,
+				"the committed export does not match the tree — it was not regenerated after a rule, contract or value set changed")
+			return finish(rep.Document(), *jsonOut)
+		}
+		rep.Artifact("governance-export", *out)
+		if !*jsonOut {
+			fmt.Fprintf(os.Stderr, "%s is current: %d objects, %d rules\n",
+				*out, fresh.GeneratedFrom.ObjectCount, fresh.GeneratedFrom.RuleCount)
+		}
+		return finish(rep.Document(), *jsonOut)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		rep.Findings().Error(engine.CodeChainUnknown, *out, err.Error())
+		return finish(rep.Document(), *jsonOut)
+	}
+	if err := os.WriteFile(path, body, 0o644); err != nil {
+		rep.Findings().Error(engine.CodeChainUnknown, *out, err.Error())
+		return finish(rep.Document(), *jsonOut)
+	}
+	rep.Artifact("governance-export", *out)
+	if !*jsonOut {
+		fmt.Fprintf(os.Stderr, "%s: %d objects, %d rules, %d value sets\n", *out,
+			fresh.GeneratedFrom.ObjectCount, fresh.GeneratedFrom.RuleCount, fresh.GeneratedFrom.ValueSetCount)
+	}
+	return finish(rep.Document(), *jsonOut)
 }
 
 // cmdVerify checks an OCI layout read back from disk. Publishing writes a layout; a binding pins

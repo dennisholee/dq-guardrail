@@ -4,7 +4,22 @@ Grouped by schema, newest first. A schema change that would reject a document wh
 previously validated is **breaking** and needs a new file name or path, because `$id`
 carries no version segment.
 
-## 2026-10-25 · 1.3.0 — `bundle-manifest` describes what it was carrying
+## 2026-10-25 · 1.4.0 — `governance-export` added
+
+The catalogue projection had a name in the architecture (M6, invariant S5, impact I10) and no
+shape anywhere. Writing the exporter first would have meant inventing a format inside the code
+that produces it, which is how a "catalogue integration" becomes a bespoke file nobody ingests.
+
+The schema is deliberately closer to a catalogue's entity model than to this repository's files:
+an object is a table-shaped entity with fields, owners, criticality and a rule list, and each
+field names the rules that govern it. That makes the mapping to DataHub or OpenMetadata a table
+in the design pack rather than a translation layer that cannot be tested.
+
+What it does not claim: nothing here has been ingested into a real catalogue. The document
+validates against this schema and is reproducible from the tree; whether a catalogue accepts it
+is unproven, and is recorded as such.
+
+
 
 Found by writing the consumer-side check (`dqctl verify --contents`), not by reading the
 manifest. Reading a published bundle back and comparing its manifest against the files it

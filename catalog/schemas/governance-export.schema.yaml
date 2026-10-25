@@ -1,0 +1,86 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://registry.internal/dq/schemas/governance-export.schema.yaml
+title: Governance export
+description: >-
+  The read-only projection of the artefact graph into a data catalogue (S5, I10, M6).
+  It is generated, never edited, and it is one-way: the catalogue never writes back, because a
+  second editable copy is the most common way a single source of truth dies. The shape is
+  deliberately closer to a catalogue's entity model than to this repository's files, so that the
+  mapping to DataHub or OpenMetadata is a table rather than a translation layer nobody can test.
+type: object
+additionalProperties: false
+required: [exportFormat, generatedFrom, objects]
+properties:
+  exportFormat: { const: 1 }
+  generatedFrom:
+    type: object
+    additionalProperties: false
+    required: [bundleDigest, objectCount, ruleCount, valueSetCount]
+    properties:
+      bundleDigest: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+      objectCount: { type: integer, minimum: 0 }
+      ruleCount: { type: integer, minimum: 0 }
+      valueSetCount: { type: integer, minimum: 0 }
+  objects:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required: [name, version, description, contractDigest, owner, fields, rules]
+      properties:
+        name: { type: string, pattern: '^[a-z][a-z0-9]*$' }
+        version: { type: string, pattern: '^[0-9]+\.[0-9]+\.[0-9]+$' }
+        description: { type: string, minLength: 1 }
+        contractDigest: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+        owner: { type: string, minLength: 1 }
+        steward:
+          type: object
+          additionalProperties: false
+          properties:
+            name: { type: string }
+            email: { type: string }
+        criticality: { enum: [P1, P2, P3] }
+        sensitivity: { enum: [PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED] }
+        retention: { type: string }
+        allowedIntents:
+          type: array
+          items: { type: string, pattern: '^[a-z][a-z0-9]*$' }
+        thresholds:
+          type: object
+          additionalProperties: { type: number, minimum: 0, maximum: 100 }
+        fields:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [path, description, governedBy]
+            properties:
+              path: { type: string, pattern: '^\$(\.[A-Za-z_][A-Za-z0-9_]*|\[[0-9]+\])*$' }
+              description: { type: string }
+              required: { type: boolean }
+              governedBy:
+                type: array
+                description: The rules that name this field, so a reader can go from catalogue column to assertion.
+                items: { type: string, pattern: '^(SYN|SEM|STA)-[A-Z]{3}-[0-9]{3}$' }
+        rules:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [ruleId, severity, dimension, message, packDigest]
+            properties:
+              ruleId: { type: string, pattern: '^(SYN|SEM|STA)-[A-Z]{3}-[0-9]{3}$' }
+              severity: { enum: [CRITICAL, MAJOR, MINOR] }
+              dimension: { enum: [completeness, validity, accuracy, consistency, uniqueness, timeliness] }
+              message: { type: string, minLength: 1, maxLength: 200 }
+              packDigest: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+        valueSets:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [name, version, digest]
+            properties:
+              name: { type: string, pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$' }
+              version: { type: string, pattern: '^[0-9]+\.[0-9]+\.[0-9]+$' }
+              digest: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }

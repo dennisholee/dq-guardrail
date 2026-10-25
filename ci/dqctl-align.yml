@@ -110,6 +110,12 @@ jobs:
       - name: L5 - Rule fixtures
         run: ./bin/dqctl test --root "$DQ_ROOT"
 
+      # The catalogue projection is generated like every other derived artefact, so it is guarded
+      # like one: a rule edit that does not regenerate it fails here rather than silently leaving
+      # the catalogue describing a tree that no longer exists.
+      - name: Export - the governance projection still describes the tree
+        run: ./bin/dqctl export --root "$DQ_ROOT" --check
+
       - name: Evidence - the committed manifest still describes the tree
         run: ./bin/dqctl bundle --root "$DQ_ROOT" --check
 
