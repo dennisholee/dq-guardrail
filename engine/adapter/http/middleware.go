@@ -170,25 +170,14 @@ func Middleware(cfg Config) func(http.Handler) http.Handler {
 
 func readerOf(b []byte) io.Reader { return bytes.NewReader(b) }
 
-// writeFailure renders one of the platform failures from §2.6. They are deliberately not
-// violations: a violation says the record is wrong, a failure says the gate could not tell.
-// Mixing them teaches clients to retry bad data or to quarantine good data.
-//
-// The code is carried as an extension member so the metric label
-// (dq.failures{code=…}) and the wire response name the same thing.
+// writeFailure renders one of the platform failures from §2.6. The body comes from the engine so
+// that every channel renders it identically — an adapter that invents its own failure document
+// cannot pass T4.
 func writeFailure(w http.ResponseWriter, status int, code, title, detail, instance, correlationID string) {
 	w.Header().Set("content-type", "application/problem+json")
 	if correlationID != "" {
 		w.Header().Set("x-dq-correlation-id", correlationID)
 	}
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"type":          "https://registry.internal/problems/" + strings.ToLower(strings.ReplaceAll(code, "_", "-")),
-		"title":         title,
-		"status":        status,
-		"detail":        detail,
-		"instance":      instance,
-		"correlationId": correlationID,
-		"code":          code,
-	})
+	_ = json.NewEncoder(w).Encode(engine.FailureProblem(status, code, title, detail, instance, correlationID))
 }

@@ -517,9 +517,16 @@ Nothing in this section existed before an E2E harness was attempted. `KD-1` choo
 |---|---|---|
 | `request_headers` | `SEND` | The routing key and the correlation id arrive here, before any body is buffered |
 | `request_body` | `BUFFERED` | Tier 0 and every semantic rule need the whole record; a streamed body cannot answer "is this a valid party" |
-| `response_headers` | `SKIP` | The filter never mutates a response — Block 2 |
-| `response_body` | `NONE` | As above |
+| `response_headers` | `SEND` | Only to add the digest and warn annotations — never to change the status |
+| `response_body` | `NONE` | The filter never reads or rewrites a response body |
 | `trailers` | `SKIP` | Nothing is decided from trailers |
+
+`response_headers` is `SEND` rather than `SKIP` because of a defect this section originally had:
+a header mutation returned in the *request* phase travels **upstream**, so with `SKIP` the caller
+never sees `DQ-Pack-Digest` at all. The library adapter sets it on the response because it wraps
+the handler; a proxy must ask for the response phase to do the same thing. Sending that header is
+the whole traceability channel, so the phase is enabled and the prohibition below is scoped to
+what actually matters: the status and the body.
 
 A request is decided **once**, on the `request_body` message with `end_of_stream: true`. A record split across several body messages is reassembled before `Decide`; an implementation that decides per chunk is non-conforming, because half a party is not a party.
 
@@ -540,7 +547,7 @@ Step 4 is the one that costs most to get wrong. A body limit that **truncates** 
 
 | Prohibition | Why |
 |---|---|
-| Mutate a response | A quality gate that rewrites responses is a transformation layer with a different review bar |
+| Change a response status or body | A quality gate that rewrites responses is a transformation layer with a different review bar. Adding the digest header is the one permitted write, and it is traceability rather than transformation |
 | Retry the decision | A retry turns one record into two verdicts, and the second may pass because the first consumed a provider call |
 | Cache a decision | Two identical records are not the same record: the `history` and `delta` providers make the answer time-dependent |
 | Load rules on the request path | S4 — the runtime evaluates a resolved plan from a pinned digest, or it refuses to start |
@@ -552,7 +559,7 @@ This is the part a comparison table cannot supply. The distinction is the one §
 
 | Situation | ENFORCE | SHADOW / WARN | Mechanism |
 |---|---|---|---|
-| ext_proc unreachable, or the deadline expires | `503` `DQ_ENGINE_UNAVAILABLE`, `application/problem+json` | pass through untouched | `failure_mode_allow: false` in ENFORCE, `true` in SHADOW/WARN, plus a `local_reply_config` body mapping |
+| ext_proc unreachable, or the deadline expires | a 5xx from Envoy — **measured**: `500` when the connection fails, `504` when the message timeout expires. Rendering it as `503 DQ_ENGINE_UNAVAILABLE` with a problem document needs a `local_reply_config` body mapping, which is **not yet configured** | pass through untouched | `failure_mode_allow: false` in ENFORCE, `true` in SHADOW/WARN |
 | `Decide` returns an error (a rule that does not compile) | `500` `DQ_RULE_ERROR` | pass through, counted as skipped | the filter maps the error; it does not invent a violation |
 | Rule compiled but could not be evaluated for this record | not a failure — the record fails closed with a `CRITICAL` violation naming the rule | same | `engine.Decide` already does this; §2.6 `retryable` |
 | Bundle fails digest or signature verification at start-up | process exits; the workload falls back to `fallbackDigest`, then `onBundleFailure` (§5) | same | S4 — a filter does not start with rules it cannot verify |
@@ -570,6 +577,18 @@ This is the part a comparison table cannot supply. The distinction is the one §
 | Memory | `maxRequestBytes` × pool + bundle | The bundle is resident; nothing is loaded per request |
 
 **Determinism (T4).** The same record through C7b and through C7c must produce a byte-identical violation set and the same `packDigest`. That is the claim [§6 of the architecture](solution-architecture.md#6-system-dynamics) makes for all three channels at once. A filter that binds `this` differently from the library adapter breaks it silently, because each looks correct on its own; the T3 harness therefore replays a corpus through both and compares bytes, not summaries.
+
+**What the harness measured.** `ci/e2e/extproc.sh` runs a real Envoy, the `dqextprocd` service and an upstream stub that counts what reaches it. Five assertions, all green:
+
+| Assertion | Result |
+|---|---|
+| a clean record reaches the upstream, and the caller receives `DQ-Pack-Digest` | 201, digest present, upstream saw 1 request |
+| an invalid record is refused before the upstream | 422 with a problem document, upstream still at 1 |
+| a non-JSON body is a platform failure | 415 `DQ_UNSUPPORTED_MEDIA_TYPE`, upstream still at 1 |
+| an unrouted path is not decided | 201 from the upstream, which counts it |
+| with the filter gone, ENFORCE fails closed | 504, upstream still not called |
+
+Three defects came out of writing it, and none would have been found by a unit test with a fake stream: a header mutation sent in the request phase travels **upstream**, so `DQ-Pack-Digest` never reached the caller until this section required the response phase; a `direct_response` route is a *local reply*, which ext_proc skips entirely, so the first harness could not observe its own response header; and the daemon must listen on both families, because Envoy resolved a host-gateway name to IPv6 while the service bound IPv4.
 
 ---
 ## 3. `dqctl` command contract

@@ -125,6 +125,13 @@ jobs:
       - name: Verify - the layout's digests still name its bytes
         run: ./bin/dqctl verify --layout dist/oci --contents
 
+      # T3 channel integration, C7b. A real Envoy intercepts a request, refuses an invalid record
+      # before the upstream, and fails closed when the filter is gone. A unit test with a fake
+      # stream cannot prove interception; this can, and did find three defects.
+      - name: T3 - Envoy intercepts and validates (ext_proc)
+        if: runner.os == 'Linux'
+        run: ./ci/e2e/extproc.sh
+
       - name: Upload the bundle and layout
         uses: actions/upload-artifact@v4
         with:
